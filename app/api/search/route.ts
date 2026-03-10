@@ -122,6 +122,7 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
             paragraphLower.includes("no new concerns") ||
             paragraphLower.includes("the nurse did not voice any concerns") ||
             paragraphLower.includes("notify wound team of any concerns") ||
+             paragraphLower.includes("no further concern") ||
             /\bno\s+concern\b/i.test(paragraphLower) ||
             /\bno\s+behavioral\s+concerns?\b/i.test(paragraphLower)
           ) {
