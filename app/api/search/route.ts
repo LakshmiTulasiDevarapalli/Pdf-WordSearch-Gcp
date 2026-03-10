@@ -106,6 +106,9 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
         // - "denies any new concern"
         // - "no concern"
         // - "no behavioral concerns" (standalone)
+        // - "no new concerns"
+        // - "The nurse did not voice any concerns"
+        // - "notify wound team of any concerns"
         if (keywordLower === "concern") {
           if (
             paragraphLower.includes("questions regarding any part of the document") ||
@@ -114,6 +117,9 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
             paragraphLower.includes("no behavioral concerns observed during the shift") ||
             paragraphLower.includes("no behavioral concern(s) observed during the shift") ||
             paragraphLower.includes("denies any new concern") ||
+            paragraphLower.includes("no new concerns") ||
+            paragraphLower.includes("the nurse did not voice any concerns") ||
+            paragraphLower.includes("notify wound team of any concerns") ||
             /\bno\s+concern\b/i.test(paragraphLower) ||
             /\bno\s+behavioral\s+concerns?\b/i.test(paragraphLower)
           ) {
@@ -256,28 +262,37 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
   }
 
   // --- Special validation for the LOS keyword ---
-  // "los", "loss", "lose", "losing", "lost" etc. should match, but "losartan", "weight loss", and "air loss" should NOT.
+  // "los", "loss", "lose", "losing", "lost" etc. should match, but "losartan", "weight loss", "air loss",
+  // "HEARING LOSS", "VISUAL LOSS", "Visual loss" should NOT.
   if (keywordLower === "los") {
     const afterKeyword = text.substring(matchIndex + keyword.length)
     if (/^artan/i.test(afterKeyword)) {
       return false
     }
-    // Exclude "weight loss", "weight lose", "weight losing", "air loss" etc.
-    const textBeforeMatch = text.substring(Math.max(0, matchIndex - 15), matchIndex)
+    // Exclude "weight loss", "weight lose", "weight losing", "air loss", "hearing loss", "visual loss" etc.
+    const textBeforeMatch = text.substring(Math.max(0, matchIndex - 20), matchIndex)
     if (/weight\s+$/i.test(textBeforeMatch) || /air\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+    if (/hearing\s+$/i.test(textBeforeMatch) || /visual\s+$/i.test(textBeforeMatch)) {
       return false
     }
   }
 
   // --- Special validation for the BRUIS keyword ---
   // "bruis", "bruise", "bruised", "bruising" etc. should match,
-  // but "no bruising", "no bruise", "no easy bruising", "no easy bruise", "monitor for bleeding or bruising" etc. should NOT.
+  // but "no bruising", "no bruise", "no easy bruising", "no easy bruise", "monitor for bleeding or bruising",
+  // "monitor for bruising/bleeding", "Monitor for bruises/bleeding" etc. should NOT.
   if (keywordLower === "bruis") {
     const textBeforeMatch = text.substring(Math.max(0, matchIndex - 35), matchIndex)
     if (/no\s+$/i.test(textBeforeMatch) || /no\s+easy\s+$/i.test(textBeforeMatch)) {
       return false
     }
     if (/monitor\s+for\s+bleeding\s+or\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+    // Exclude "monitor for bruising/bleeding" and "Monitor for bruises/bleeding"
+    if (/monitor\s+for\s+$/i.test(textBeforeMatch)) {
       return false
     }
   }
@@ -295,7 +310,7 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
   // --- Special validation for the SMOK keyword ---
   // "smok", "smoke", "smoking", "smoked" etc. should match,
   // but "never smok", "never smoke", "never smoking", "never smoked" etc. should NOT.
-  // Also exclude "non-smoker within the past 30 days" and "Former remote smoker"
+  // Also exclude "non-smoker within the past 30 days", "Former remote smoker", and "Former Smoker"
   if (keywordLower === "smok") {
     const textBeforeMatch = text.substring(Math.max(0, matchIndex - 40), matchIndex)
     if (/never\s+$/i.test(textBeforeMatch)) {
@@ -305,6 +320,10 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
       return false
     }
     if (/former\s+remote\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+    // Exclude "Former Smoker"
+    if (/former\s+$/i.test(textBeforeMatch)) {
       return false
     }
   }
@@ -373,6 +392,27 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     }
     // Exclude "abuse," or "abuse ," (trailing comma pattern)
     if (/^[\s]*,/i.test(afterKeyword)) {
+      return false
+    }
+  }
+
+  // --- Special validation for the MISSING keyword ---
+  // "missing", "miss" etc. should match, but "no missing teeth" should NOT.
+  if (keywordLower === "missing") {
+    const textBeforeMatch = text.substring(Math.max(0, matchIndex - 15), matchIndex)
+    if (/no\s+$/i.test(textBeforeMatch)) {
+      const afterKeyword = text.substring(matchIndex + keyword.length, matchIndex + keyword.length + 15)
+      if (/^\s+teeth/i.test(afterKeyword)) {
+        return false
+      }
+    }
+  }
+
+  // --- Special validation for the 15 MIN keyword ---
+  // "15 min", "15 mins", "15 minutes" etc. should match, but "Physician spent 15 mins" should NOT.
+  if (keywordLower === "15 min") {
+    const textBeforeMatch = text.substring(Math.max(0, matchIndex - 25), matchIndex)
+    if (/physician\s+spent\s+$/i.test(textBeforeMatch)) {
       return false
     }
   }
