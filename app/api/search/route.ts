@@ -131,6 +131,16 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
           }
         }
 
+        // --- Paragraph-level exclusion for the INJURY keyword ---
+        // Skip paragraphs that contain "self injury" or "self-injury".
+        if (keywordLower === "injury") {
+          if (
+            /self[\s-]+injur/i.test(block.paragraphText)
+          ) {
+            continue
+          }
+        }
+
         const dedupedOccurrences = deduplicateOccurrencesByDistance(occurrences, 200)
 
         console.log(

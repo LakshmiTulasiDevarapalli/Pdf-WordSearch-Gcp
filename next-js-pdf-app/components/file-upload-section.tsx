@@ -51,6 +51,11 @@ const DEFAULT_KEYWORDS = [
   "ERROR",
   "CODE",
   "CHANGE",
+  "FIRE",
+  "BURN",
+  "INJURY",
+  "HURT",
+  "MONEY",
 ]
 
 interface SearchResult {
