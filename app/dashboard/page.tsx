@@ -153,7 +153,7 @@ export default function DashboardPage() {
   const router = useRouter()
   const [userEmail, setUserEmail] = useState("")
   const [userDepartment, setUserDepartment] = useState("")
-  const [userRole, setUserRole] = useState("")
+  const [userRole, setUserRole] = useState<string | null>(null) // null = not yet loaded
 
   // ✅ FIX: Read email from Supabase session instead of sessionStorage
   useEffect(() => {
@@ -163,13 +163,16 @@ export default function DashboardPage() {
 
       // Fetch department and role from the users table to control feature visibility
       if (user?.email) {
-        const { data: userData } = await supabase
+        const { data: userData, error } = await supabase
           .from("users")
           .select("department, role")
           .eq("email", user.email)
           .single()
+        console.log("[v0] user role fetch result:", userData, "error:", error)
         setUserDepartment(userData?.department || "")
-        setUserRole(userData?.role || "")
+        setUserRole(userData?.role ?? "")
+      } else {
+        setUserRole("")
       }
     }
     getUser()
@@ -265,8 +268,8 @@ export default function DashboardPage() {
               <span className="hidden text-xs md:inline" style={{ color: "#9ca3af" }}>{userEmail}</span>
             )}
             {userDepartment === "IT" && <CleanupStorageButton />}
-            {/* Settings Dropdown — hidden for Viewer role */}
-            {userRole.toLowerCase() !== "viewer" && <SettingsDropdown />}
+            {/* Settings Dropdown — hidden for Viewer role and while role is still loading */}
+            {userRole !== null && userRole.toLowerCase() !== "viewer" && <SettingsDropdown />}
             <button
               type="button"
               onClick={handleLogout}
