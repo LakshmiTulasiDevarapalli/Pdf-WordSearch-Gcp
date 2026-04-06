@@ -153,6 +153,7 @@ export default function DashboardPage() {
   const router = useRouter()
   const [userEmail, setUserEmail] = useState("")
   const [userDepartment, setUserDepartment] = useState("")
+  const [userRole, setUserRole] = useState("")
 
   // ✅ FIX: Read email from Supabase session instead of sessionStorage
   useEffect(() => {
@@ -160,14 +161,15 @@ export default function DashboardPage() {
       const { data: { user } } = await supabase.auth.getUser()
       setUserEmail(user?.email || "")
 
-      // Fetch department from the users table to control feature visibility
+      // Fetch department and role from the users table to control feature visibility
       if (user?.email) {
         const { data: userData } = await supabase
           .from("users")
-          .select("department")
+          .select("department, role")
           .eq("email", user.email)
           .single()
         setUserDepartment(userData?.department || "")
+        setUserRole(userData?.role || "")
       }
     }
     getUser()
@@ -263,8 +265,8 @@ export default function DashboardPage() {
               <span className="hidden text-xs md:inline" style={{ color: "#9ca3af" }}>{userEmail}</span>
             )}
             {userDepartment === "IT" && <CleanupStorageButton />}
-            {/* Settings Dropdown — placed before logout */}
-            <SettingsDropdown />
+            {/* Settings Dropdown — hidden for Viewer role */}
+            {userRole.toLowerCase() !== "viewer" && <SettingsDropdown />}
             <button
               type="button"
               onClick={handleLogout}
