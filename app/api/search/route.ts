@@ -203,7 +203,18 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
           }
         }
 
-        const dedupedOccurrences = deduplicateOccurrencesByDistance(occurrences, 200)
+        // --- Numbered list exclusion (applies to ALL keywords) ---
+        // Reject any occurrence whose position falls inside a numbered list item
+        // e.g. "1) The resident was hit" or "2. Verbal abuse noted" — the keyword
+        // can be anywhere inside the item, not just immediately after the prefix.
+        const listRanges = getNumberedListRanges(paragraphLower)
+        const nonListOccurrences = occurrences.filter(({ index }) =>
+          !listRanges.some(([start, end]) => index >= start && index < end)
+        )
+
+        if (nonListOccurrences.length === 0) continue
+
+        const dedupedOccurrences = deduplicateOccurrencesByDistance(nonListOccurrences, 200)
 
         console.log(
           `[v0] ✓ Keyword "${keyword}" found ${occurrences.length} time(s) in block ${i + 1} (${block.residentName}) - creating ${dedupedOccurrences.length} result(s) after deduplication`,
@@ -265,6 +276,25 @@ function deduplicateOccurrencesByDistance(
   return deduplicated
 }
 
+/**
+ * Returns an array of [start, end] ranges for each numbered list item in the text.
+ * Matches patterns like "1)" "2." "12) " "3. " at word boundaries.
+ * The range covers from the number prefix up to the start of the next numbered item
+ * (or end of string), so any keyword found inside a range is part of a list item.
+ */
+function getNumberedListRanges(text: string): Array<[number, number]> {
+  const ranges: Array<[number, number]> = []
+  // Match: start of string or whitespace, then digit(s), then ")" or ".", then optional spaces
+  const listItemPattern = /(?:^|(?<=\s))(\d+[).]\s*)/g
+  const matches = [...text.matchAll(listItemPattern)]
+  for (let i = 0; i < matches.length; i++) {
+    const start = matches[i].index!
+    const end = i + 1 < matches.length ? matches[i + 1].index! : text.length
+    ranges.push([start, end])
+  }
+  return ranges
+}
+
 function findAllOccurrences(text: string, keyword: string): Array<{ index: number }> {
   const occurrences: Array<{ index: number }> = []
 
@@ -318,14 +348,6 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
       }
     }
 
-    // --- Numbered list exclusion (applies to ALL keywords) ---
-    // Reject matches preceded by a numbered list prefix like "1)" or "2."
-    // e.g. "1)1:1", "2.Verbal abuse", "12) Abuse" should NOT be retrieved.
-    // Look back up to 20 chars to handle multi-digit numbers and spaces.
-    const textBefore = text.substring(Math.max(0, matchIndex - 20), matchIndex)
-    if (/\d+[).]\s*$/.test(textBefore)) {
-      return false
-    }
   }
 
   // --- Special validation for "1:1" keyword ---
