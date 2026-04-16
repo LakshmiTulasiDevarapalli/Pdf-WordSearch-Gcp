@@ -48,14 +48,17 @@ const DEFAULT_KEYWORDS = [
   "DENTURE",
   "SMOK",
   "NARCAN",
+  "FIRE",
+  "BURN",
+  "HURT",
+  "MONEY",
+  "STOLE",
+  "911",
+  "MPD",
   "ERROR",
   "CODE",
   "CHANGE",
-  "FIRE",
-  "BURN",
   "INJURY",
-  "HURT",
-  "MONEY",
 ]
 
 interface SearchResult {
