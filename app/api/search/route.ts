@@ -122,8 +122,9 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
             paragraphLower.includes("no new concerns") ||
             paragraphLower.includes("the nurse did not voice any concerns") ||
             paragraphLower.includes("notify wound team of any concerns") ||
-             paragraphLower.includes("no further concern") ||
+            paragraphLower.includes("no further concern") ||
             paragraphLower.includes("any conditions or concerns requiring referral to rehab?") ||
+            paragraphLower.includes("no additional concerns noted") ||
             /\bno\s+concern\b/i.test(paragraphLower) ||
             /\bno\s+behavioral\s+concerns?\b/i.test(paragraphLower)
           ) {
@@ -136,6 +137,58 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
         if (keywordLower === "injury") {
           if (
             /self[\s-]+injur/i.test(block.paragraphText)
+          ) {
+            continue
+          }
+        }
+
+        // --- Paragraph-level exclusion for the FOOD keyword ---
+        // Skip paragraphs that only mention food in administrative/medication contexts.
+        if (keywordLower === "food") {
+          if (
+            /give\s+with\s+food/i.test(block.paragraphText) ||
+            /food\s+and\s+nutritional\s+services/i.test(block.paragraphText)
+          ) {
+            continue
+          }
+        }
+
+        // --- Paragraph-level exclusion for the SWEL keyword ---
+        // Skip paragraphs that use "swelling" in a "no swelling" / routine clinical context.
+        if (keywordLower === "swel") {
+          if (
+            /dry\s+and\s+intact\s+with\s+no\s+bleeding\s+or\s+swelling/i.test(block.paragraphText) ||
+            /no\s+edema\s+or\s+swelling\s+noted/i.test(block.paragraphText)
+          ) {
+            continue
+          }
+        }
+
+        // --- Paragraph-level exclusion for the BURN keyword ---
+        // Skip paragraphs where "burn" only appears in "BURNOLL" (a medication name).
+        if (keywordLower === "burn") {
+          // If every occurrence of "burn" in the paragraph is part of "burnoll", skip it
+          const burnMatches = block.paragraphText.match(/burn\w*/gi) || []
+          const allAreBurnoll = burnMatches.every((m) => /^burnoll/i.test(m))
+          if (burnMatches.length > 0 && allAreBurnoll) {
+            continue
+          }
+        }
+
+        // --- Paragraph-level exclusion for the DISCOLOR keyword ---
+        // Skip paragraphs that mention "maroon discoloration" without other discoloration evidence.
+        if (keywordLower === "discolor") {
+          if (/maroon\s+discolor/i.test(block.paragraphText)) {
+            continue
+          }
+        }
+
+        // --- Paragraph-level exclusion for the BRUIS keyword ---
+        // Skip paragraphs with "Monitor for bleeding/bruising" or "no bruises, swelling, discoloration".
+        if (keywordLower === "bruis") {
+          if (
+            /monitor\s+for\s+bleeding\s*[/or]+\s*bruis/i.test(block.paragraphText) ||
+            /no\s+bruises?,\s+swelling,?\s+discoloration/i.test(block.paragraphText)
           ) {
             continue
           }
@@ -267,6 +320,18 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     }
   }
 
+  // --- Special validation for the HURT keyword ---
+  // "hurt", "hurting", "hurts" etc. should match normally.
+  // Additionally, the phrase "thoughts that you would be better off dead, or of hurting"
+  // (and similar phrasing like "hurting yourself" / "hurting others") MUST match even though
+  // "hurting" appears after "of" — this is already allowed by the word-prefix rule above.
+  // No exclusion is needed; the word-prefix rule handles false positives (e.g. "unhurt").
+  // This block is intentionally left as a no-op placeholder for clarity.
+  if (keywordLower === "hurt") {
+    // No additional exclusions — "Thoughts that you would be better off dead, or of hurting"
+    // will match correctly via the standard prefix logic.
+  }
+
   // --- Special validation for the FIND keyword ---
   // "find", "finding", "finds" etc. should match, but "findings" should NOT.
   if (keywordLower === "find") {
@@ -308,7 +373,7 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
   // but "no bruising", "no bruise", "no easy bruising", "no easy bruise", "monitor for bleeding or bruising",
   // "monitor for bruising/bleeding", "Monitor for bruises/bleeding" etc. should NOT.
   if (keywordLower === "bruis") {
-    const textBeforeMatch = text.substring(Math.max(0, matchIndex - 35), matchIndex)
+    const textBeforeMatch = text.substring(Math.max(0, matchIndex - 50), matchIndex)
     if (/no\s+$/i.test(textBeforeMatch) || /no\s+easy\s+$/i.test(textBeforeMatch)) {
       return false
     }
@@ -319,6 +384,14 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     if (/monitor\s+for\s+$/i.test(textBeforeMatch)) {
       return false
     }
+    // Exclude "Monitor for bleeding/bruising" (slash variant)
+    if (/monitor\s+for\s+bleeding\s*\/\s*$/i.test(textBeforeMatch)) {
+      return false
+    }
+    // Exclude "no bruises, swelling, discoloration" — negation before the keyword
+    if (/\bno\b.*$/i.test(textBeforeMatch)) {
+      return false
+    }
   }
 
   // --- Special validation for the DISCOLOR keyword ---
@@ -327,6 +400,10 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
   if (keywordLower === "discolor") {
     const textBeforeMatch = text.substring(Math.max(0, matchIndex - 25), matchIndex)
     if (/no\s+skin\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+    // Exclude "maroon discoloration" — maroon is a normal tissue/wound color descriptor, not an incident
+    if (/maroon\s+$/i.test(textBeforeMatch)) {
       return false
     }
   }
@@ -350,14 +427,39 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     if (/former\s+$/i.test(textBeforeMatch)) {
       return false
     }
+    // Exclude "never smoker" (the word "never" anywhere in the 40-char window before "smok")
+    if (/\bnever\b/i.test(textBeforeMatch)) {
+      return false
+    }
   }
 
   // --- Special validation for the SWEL keyword ---
   // "swel", "swell", "swelling", "swelled" etc. should match,
   // but "no swelling", "no swell" etc. should NOT.
   if (keywordLower === "swel") {
-    const textBeforeMatch = text.substring(Math.max(0, matchIndex - 15), matchIndex)
+    const textBeforeMatch = text.substring(Math.max(0, matchIndex - 40), matchIndex)
     if (/no\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+    // Exclude "dry and intact with no bleeding or swelling" and "no edema or swelling"
+    if (/no\s+bleeding\s+or\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+    if (/no\s+edema\s+or\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+    // Exclude "intact with no ... swelling"
+    if (/\bno\b.{0,30}$/i.test(textBeforeMatch)) {
+      return false
+    }
+  }
+
+  // --- Special validation for the BURN keyword ---
+  // "burn", "burning", "burned", "burns" etc. should match,
+  // but "BURNOLL" (a medication name) should NOT.
+  if (keywordLower === "burn") {
+    const afterKeyword = text.substring(matchIndex + keyword.length, matchIndex + keyword.length + 10)
+    if (/^oll/i.test(afterKeyword)) {
       return false
     }
   }
