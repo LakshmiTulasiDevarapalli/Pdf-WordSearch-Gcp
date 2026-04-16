@@ -317,6 +317,15 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
         return false
       }
     }
+
+    // --- Numbered list exclusion (applies to ALL keywords) ---
+    // Reject matches preceded by a numbered list prefix like "1)" or "2."
+    // e.g. "1)1:1", "2.Verbal abuse", "12) Abuse" should NOT be retrieved.
+    // Look back up to 20 chars to handle multi-digit numbers and spaces.
+    const textBefore = text.substring(Math.max(0, matchIndex - 20), matchIndex)
+    if (/\d+[).]\s*$/.test(textBefore)) {
+      return false
+    }
   }
 
   // --- Special validation for "1:1" keyword ---
