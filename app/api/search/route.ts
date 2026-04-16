@@ -122,8 +122,20 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
             paragraphLower.includes("no new concerns") ||
             paragraphLower.includes("the nurse did not voice any concerns") ||
             paragraphLower.includes("notify wound team of any concerns") ||
+             paragraphLower.includes("no further concern") ||
+            paragraphLower.includes("any conditions or concerns requiring referral to rehab?") ||
             /\bno\s+concern\b/i.test(paragraphLower) ||
             /\bno\s+behavioral\s+concerns?\b/i.test(paragraphLower)
+          ) {
+            continue
+          }
+        }
+
+        // --- Paragraph-level exclusion for the INJURY keyword ---
+        // Skip paragraphs that contain "self injury" or "self-injury".
+        if (keywordLower === "injury") {
+          if (
+            /self[\s-]+injur/i.test(block.paragraphText)
           ) {
             continue
           }

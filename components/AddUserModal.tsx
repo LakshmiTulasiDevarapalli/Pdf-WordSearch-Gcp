@@ -3,7 +3,6 @@
 
 import { useState, useEffect } from "react"
 import { Eye, EyeOff, Copy, Check, X } from "lucide-react"
-import { supabase } from "@/lib/supabase"
 
 interface UserData {
   id: string
@@ -77,19 +76,22 @@ export default function AddUserModal({ open, onClose, onSuccess, editUser }: Add
     setLoading(true)
 
     if (isEdit && editUser) {
-      // Edit mode — update public.users directly
-      const { error } = await supabase
-        .from("users")
-        .update({
+      // Edit mode — update via server-side API route (uses service role key to bypass RLS)
+      const res = await fetch("/api/admin/update-user", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editUser.id,
           full_name: form.full_name,
           role: form.role,
           department: form.department,
           phone: form.phone,
-        })
-        .eq("id", editUser.id)
+        }),
+      })
 
+      const data = await res.json()
       setLoading(false)
-      if (error) { setError(error.message); return }
+      if (!res.ok) { setError(data.error ?? "Failed to update user."); return }
       onSuccess()
       handleClose()
       return
