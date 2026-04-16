@@ -284,8 +284,8 @@ function deduplicateOccurrencesByDistance(
  */
 function getNumberedListRanges(text: string): Array<[number, number]> {
   const ranges: Array<[number, number]> = []
-  // Match: start of string or whitespace, then digit(s), then ")" or ".", then optional spaces
-  const listItemPattern = /(?:^|(?<=\s))(\d+[).]\s*)/g
+  // Only match 1-2 digit numbers followed by ) or . — avoids IDs like (22403)
+  const listItemPattern = /(?:^|(?<=\n))[ \t]*(\d{1,2}[).]\s+)/g
   const matches = [...text.matchAll(listItemPattern)]
   for (let i = 0; i < matches.length; i++) {
     const start = matches[i].index!
