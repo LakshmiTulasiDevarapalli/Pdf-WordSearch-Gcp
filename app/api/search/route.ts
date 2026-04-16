@@ -183,6 +183,15 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
           }
         }
 
+        // --- Paragraph-level exclusion for the HURT keyword ---
+        // Skip paragraphs that contain the specific phrase "better off dead, or of hurting"
+        // (and close variants). Any other use of "hurt" should still be captured.
+        if (keywordLower === "hurt") {
+          if (/better\s+off\s+dead,?\s+or\s+of\s+hurting/i.test(block.paragraphText)) {
+            continue
+          }
+        }
+
         // --- Paragraph-level exclusion for the BRUIS keyword ---
         // Skip paragraphs with "Monitor for bleeding/bruising" or "no bruises, swelling, discoloration".
         if (keywordLower === "bruis") {
