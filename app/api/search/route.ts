@@ -118,6 +118,10 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
         // - "The nurse did not voice any concerns"
         // - "notify wound team of any concerns"
         // - "Not attempted due to medical condition or safety concerns"
+        // - "No other concerns at this time"
+        // - "No RD concerns"
+        // - "no pain and concerns voiced"
+        // - "did not verbalize any concern"
         if (keywordLower === "concern") {
           if (
             paragraphLower.includes("questions regarding any part of the document") ||
@@ -136,6 +140,10 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
             paragraphLower.includes("no additional concerns noted") ||
             paragraphLower.includes("no concerns") ||
             paragraphLower.includes("not attempted due to medical condition or safety concerns") ||
+            paragraphLower.includes("no other concerns at this time") ||
+            paragraphLower.includes("no rd concerns") ||
+            paragraphLower.includes("no pain and concerns voiced") ||
+            paragraphLower.includes("did not verbalize any concern") ||
             /\bno\s+concern\b/i.test(paragraphLower) ||
             /\bno\s+behavioral\s+concerns?\b/i.test(paragraphLower)
           ) {
@@ -181,6 +189,7 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
         // Skip paragraphs where "burn" only appears in "BURNOLL" (a medication name).
         // Also skip paragraphs that mention "Glen Burnie" (a place name in Maryland).
         // Also skip paragraphs that contain "No complaints of burning with voiding".
+        // Also skip paragraphs that contain "Resident is at Risk for burns due to unable to safely manage".
         if (keywordLower === "burn") {
           // If every occurrence of "burn" in the paragraph is part of "burnoll", skip it
           const burnMatches = block.paragraphText.match(/burn\w*/gi) || []
@@ -194,6 +203,10 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
           }
           // Exclude "No complaints of burning with voiding"
           if (/no\s+complaints\s+of\s+burning\s+with\s+voiding/i.test(block.paragraphText)) {
+            continue
+          }
+          // Exclude "Resident is at Risk for burns due to unable to safely manage"
+          if (/resident\s+is\s+at\s+risk\s+for\s+burns?\s+due\s+to\s+unable\s+to\s+safely\s+manage/i.test(block.paragraphText)) {
             continue
           }
         }
@@ -554,6 +567,10 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     }
     // Exclude "denies drinking alcohol or smoking tobacco"
     if (/denies\s+drinking\s+alcohol\s+or\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+    // Exclude "No history of smoking"
+    if (/no\s+history\s+of\s+$/i.test(textBeforeMatch)) {
       return false
     }
   }
