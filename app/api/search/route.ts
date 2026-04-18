@@ -511,6 +511,10 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     if (/current\s+$/i.test(textBeforeMatch)) {
       return false
     }
+    // Exclude "smoking cessation"
+    if (/^ing\s+cessation/i.test(afterKeyword)) {
+      return false
+    }
   }
 
   // --- Special validation for the SWEL keyword ---
