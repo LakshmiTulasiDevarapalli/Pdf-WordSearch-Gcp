@@ -55,10 +55,10 @@ const DEFAULT_KEYWORDS = [
   "STOLE",
   "911",
   "MPD",
-  "ERROR",
-  "CODE",
-  "CHANGE",
-  "INJURY",
+  // "ERROR",
+  // "CODE",
+  // "CHANGE",
+  // "INJURY",
 ]
 
 interface SearchResult {
