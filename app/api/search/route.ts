@@ -284,20 +284,14 @@ function deduplicateOccurrencesByDistance(
 
 /**
  * Returns an array of [start, end] ranges for each numbered list item in the text.
- * Matches patterns like "1)" "2." "3=" "12) " "3. " whether they appear:
- *   - at the start of a line:  "1) Resident fell"
- *   - inline after a comma or space: "3)Resident on 1:1,2) Staff 1:1,1)1:1 monitoring"
+ * Matches patterns like "1)" "2." "12) " "3. " at word boundaries.
  * The range covers from the number prefix up to the start of the next numbered item
  * (or end of string), so any keyword found inside a range is part of a list item.
  */
 function getNumberedListRanges(text: string): Array<[number, number]> {
   const ranges: Array<[number, number]> = []
-  // Match 1-2 digit numbers followed by ), ., or = that appear either:
-  //   - at the start of the string / after a newline (original behaviour), OR
-  //   - after a comma, semicolon, or whitespace (inline lists like "3)...,2)...,1)...")
-  // The negative lookbehind (?<![\d]) prevents matching a number that is part of a
-  // larger number (e.g. the "2" in "12)").
-  const listItemPattern = /(?:(?:^|(?<=[\n,;]))\s*|(?<=\s))(?<!\d)\d{1,2}[).=]\s*/g
+  // Only match 1-2 digit numbers followed by ) or . — avoids IDs like (22403)
+  const listItemPattern = /(?:^|(?<=\n))[ \t]*(\d{1,2}[).]\s*)/g
   const matches = [...text.matchAll(listItemPattern)]
   for (let i = 0; i < matches.length; i++) {
     const start = matches[i].index!
