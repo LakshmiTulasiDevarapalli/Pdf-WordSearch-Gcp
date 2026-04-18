@@ -94,25 +94,19 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
 
     for (let i = 0; i < blocks.length; i++) {
       const block = blocks[i]
+
+      // --- Block-level exclusion for "Default PN Type for eMAR Note Text" ---
+      // These are structured eMAR checklist notes (e.g. suicidal ideation questionnaires).
+      // Their content is templated/routine and should never be surfaced as a keyword match.
+      if (/default\s+pn\s+type\s+for\s+emar\s+note\s+text/i.test(block.type)) {
+        continue
+      }
+
       const paragraphLower = block.paragraphText.toLowerCase()
 
       const occurrences = findAllOccurrences(paragraphLower, keywordLower)
 
       if (occurrences.length > 0) {
-        // --- Global paragraph-level exclusion: behavioral checklist template (ALL keywords) ---
-        // Skip ANY note whose text contains the behavioral checklist header:
-        // "A) Has the resident exhibited the following behavior any time during the shift?"
-        // In these notes, keywords like "1:1", "hit", "punch", etc. only appear as part of
-        // templated intervention lists (e.g. "1)1:1 monitoring for suicidal ideation"),
-        // NOT as genuine incident evidence — so we must never retrieve them.
-        if (
-          /a\)\s*has\s+(the\s+)?resident\s+exhibited\s+the\s+following\s+behavior\s+any\s+time\s+during\s+the\s+shift/i.test(
-            block.paragraphText,
-          )
-        ) {
-          continue
-        }
-
         // --- Paragraph-level exclusion for the CONCERN keyword ---
         // Skip paragraphs that contain specific phrases:
         // - "questions regarding any part of the document" / "questions concerning any part of the document"
