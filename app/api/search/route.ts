@@ -122,6 +122,8 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
         // - "No RD concerns"
         // - "no pain and concerns voiced"
         // - "did not verbalize any concern"
+        // - "has no care concerns at this time"
+        // - "OTHER AREAS OF CONCERN: Must view"
         if (keywordLower === "concern") {
           if (
             paragraphLower.includes("questions regarding any part of the document") ||
@@ -144,6 +146,8 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
             paragraphLower.includes("no rd concerns") ||
             paragraphLower.includes("no pain and concerns voiced") ||
             paragraphLower.includes("did not verbalize any concern") ||
+            paragraphLower.includes("has no care concerns at this time") ||
+            paragraphLower.includes("other areas of concern: must view") ||
             /\bno\s+concern\b/i.test(paragraphLower) ||
             /\bno\s+behavioral\s+concerns?\b/i.test(paragraphLower)
           ) {
@@ -168,7 +172,8 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
             /give\s+with\s+food/i.test(block.paragraphText) ||
             /food\s+and\s+nutritional\s+services/i.test(block.paragraphText) ||
             /with\s+food/i.test(block.paragraphText) ||
-            /food\s+preferences/i.test(block.paragraphText)
+            /food\s+preferences/i.test(block.paragraphText) ||
+            /food\s+intake/i.test(block.paragraphText)
           ) {
             continue
           }
@@ -528,7 +533,7 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
   // "smok", "smoke", "smoking", "smoked" etc. should match,
   // but "never smok", "never smoke", "never smoking", "never smoked" etc. should NOT.
   // Also exclude "non-smoker within the past 30 days", "Former remote smoker", "Former Smoker",
-  // "if ever smoked", "quit smoking", and "Current smoker".
+  // "former smoker", "if ever smoked", "quit smoking", "Current smoker", and "No history of smoking".
   if (keywordLower === "smok") {
     const textBeforeMatch = text.substring(Math.max(0, matchIndex - 40), matchIndex)
     const afterKeyword = text.substring(matchIndex + keyword.length, matchIndex + keyword.length + 10)
@@ -608,7 +613,7 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
 
   // --- Special validation for the LEAVE keyword ---
   // "leave", "leaving", "leaves" etc. should match,
-  // but "Return from Leave", "leave open to air", "Leave open" etc. should NOT.
+  // but "Return from Leave", "leave open to air", "Leave open", "Leave heplock" etc. should NOT.
   if (keywordLower === "leave") {
     const textBeforeMatch = text.substring(Math.max(0, matchIndex - 20), matchIndex)
     const afterKeyword = text.substring(matchIndex + keyword.length, matchIndex + keyword.length + 20)
@@ -616,6 +621,10 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
       return false
     }
     if (/^\s+open/i.test(afterKeyword)) {
+      return false
+    }
+    // Exclude "Leave heplock"
+    if (/^\s+heplock/i.test(afterKeyword)) {
       return false
     }
   }
@@ -635,10 +644,14 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
   }
 
   // --- Special validation for the PACK keyword (additional rules) ---
-  // Exclude "packed" and "packet" as well
+  // Exclude "packed" and "packet" as well. Also exclude "pack with Dakin's" (wound care instruction).
   if (keywordLower === "pack") {
     const afterKeyword = text.substring(matchIndex + keyword.length)
     if (/^ed\b/i.test(afterKeyword) || /^et/i.test(afterKeyword)) {
+      return false
+    }
+    // Exclude "pack with Dakin's"
+    if (/^\s+with\s+dakin/i.test(afterKeyword)) {
       return false
     }
   }
