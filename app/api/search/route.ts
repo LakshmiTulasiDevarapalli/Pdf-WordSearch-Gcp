@@ -99,6 +99,20 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
       const occurrences = findAllOccurrences(paragraphLower, keywordLower)
 
       if (occurrences.length > 0) {
+        // --- Global paragraph-level exclusion: behavioral checklist template (ALL keywords) ---
+        // Skip ANY note whose text contains the behavioral checklist header:
+        // "A) Has the resident exhibited the following behavior any time during the shift?"
+        // In these notes, keywords like "1:1", "hit", "punch", etc. only appear as part of
+        // templated intervention lists (e.g. "1)1:1 monitoring for suicidal ideation"),
+        // NOT as genuine incident evidence — so we must never retrieve them.
+        if (
+          /a\)\s*has\s+(the\s+)?resident\s+exhibited\s+the\s+following\s+behavior\s+any\s+time\s+during\s+the\s+shift/i.test(
+            block.paragraphText,
+          )
+        ) {
+          continue
+        }
+
         // --- Paragraph-level exclusion for the CONCERN keyword ---
         // Skip paragraphs that contain specific phrases:
         // - "questions regarding any part of the document" / "questions concerning any part of the document"
@@ -284,17 +298,13 @@ function deduplicateOccurrencesByDistance(
 
 /**
  * Returns an array of [start, end] ranges for each numbered list item in the text.
- * Matches patterns like "1)" "2." "12) " "3. " at the START OF A LINE only.
+ * Matches patterns like "1)" "2." "12) " "3. " at word boundaries.
  * The range covers from the number prefix up to the start of the next numbered item
  * (or end of string), so any keyword found inside a range is part of a list item.
- *
- * Note: inline numbered lists (e.g. "3)Resident on 1:1,2) Staff,1)1:1") are NOT
- * handled here — those are caught per-keyword in isValidKeywordMatch instead,
- * to avoid incorrectly swallowing unrelated paragraph content into list ranges.
  */
 function getNumberedListRanges(text: string): Array<[number, number]> {
   const ranges: Array<[number, number]> = []
-  // Only match 1-2 digit numbers followed by ) or . at the start of a line
+  // Only match 1-2 digit numbers followed by ) or . — avoids IDs like (22403)
   const listItemPattern = /(?:^|(?<=\n))[ \t]*(\d{1,2}[).]\s*)/g
   const matches = [...text.matchAll(listItemPattern)]
   for (let i = 0; i < matches.length; i++) {
@@ -363,8 +373,6 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
   // --- Special validation for "1:1" keyword ---
   // Reject if the character AFTER "1:1" is a digit, meaning it's part of a time format like "1:13" or "01:13"
   // Valid: "1:1 monitoring", "on 1:1." — Invalid: "01:13", "1:15"
-  // Note: occurrences inside numbered list items (e.g. "3)Resident on 1:1 monitoring") are
-  // excluded by getNumberedListRanges(), not here.
   if (keywordLower === "1:1") {
     const charAfter = text[matchIndex + keyword.length]
     if (charAfter !== undefined && /[0-9]/.test(charAfter)) {
