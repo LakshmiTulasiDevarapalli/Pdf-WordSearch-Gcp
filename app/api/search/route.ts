@@ -180,6 +180,7 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
         // --- Paragraph-level exclusion for the BURN keyword ---
         // Skip paragraphs where "burn" only appears in "BURNOLL" (a medication name).
         // Also skip paragraphs that mention "Glen Burnie" (a place name in Maryland).
+        // Also skip paragraphs that contain "No complaints of burning with voiding".
         if (keywordLower === "burn") {
           // If every occurrence of "burn" in the paragraph is part of "burnoll", skip it
           const burnMatches = block.paragraphText.match(/burn\w*/gi) || []
@@ -189,6 +190,10 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
           }
           // Exclude "Glen Burnie" (Maryland city name)
           if (/glen\s+burni/i.test(block.paragraphText)) {
+            continue
+          }
+          // Exclude "No complaints of burning with voiding"
+          if (/no\s+complaints\s+of\s+burning\s+with\s+voiding/i.test(block.paragraphText)) {
             continue
           }
         }
