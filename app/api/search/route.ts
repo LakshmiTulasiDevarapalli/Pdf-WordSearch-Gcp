@@ -117,6 +117,7 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
         // - "no new concerns"
         // - "The nurse did not voice any concerns"
         // - "notify wound team of any concerns"
+        // - "Not attempted due to medical condition or safety concerns"
         if (keywordLower === "concern") {
           if (
             paragraphLower.includes("questions regarding any part of the document") ||
@@ -134,6 +135,7 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
             paragraphLower.includes("any conditions or concerns requiring referral to rehab?") ||
             paragraphLower.includes("no additional concerns noted") ||
             paragraphLower.includes("no concerns") ||
+            paragraphLower.includes("not attempted due to medical condition or safety concerns") ||
             /\bno\s+concern\b/i.test(paragraphLower) ||
             /\bno\s+behavioral\s+concerns?\b/i.test(paragraphLower)
           ) {
@@ -157,7 +159,8 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
           if (
             /give\s+with\s+food/i.test(block.paragraphText) ||
             /food\s+and\s+nutritional\s+services/i.test(block.paragraphText) ||
-            /with\s+food/i.test(block.paragraphText)
+            /with\s+food/i.test(block.paragraphText) ||
+            /food\s+preferences/i.test(block.paragraphText)
           ) {
             continue
           }
@@ -176,11 +179,16 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
 
         // --- Paragraph-level exclusion for the BURN keyword ---
         // Skip paragraphs where "burn" only appears in "BURNOLL" (a medication name).
+        // Also skip paragraphs that mention "Glen Burnie" (a place name in Maryland).
         if (keywordLower === "burn") {
           // If every occurrence of "burn" in the paragraph is part of "burnoll", skip it
           const burnMatches = block.paragraphText.match(/burn\w*/gi) || []
           const allAreBurnoll = burnMatches.every((m) => /^burnoll/i.test(m))
           if (burnMatches.length > 0 && allAreBurnoll) {
+            continue
+          }
+          // Exclude "Glen Burnie" (Maryland city name)
+          if (/glen\s+burni/i.test(block.paragraphText)) {
             continue
           }
         }
@@ -436,6 +444,22 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     if (/blood\s+$/i.test(textBeforeMatch)) {
       return false
     }
+    // Exclude "wt loss" (abbreviation for weight loss)
+    if (/wt\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+    // Exclude "loss weight" — "los" matched inside "loss" followed by " weight"
+    if (/^s\s+weight/i.test(afterKeyword)) {
+      return false
+    }
+    // Exclude "lost weight" — "los" matched inside "lost" followed by " weight"
+    if (/^t\s+weight/i.test(afterKeyword)) {
+      return false
+    }
+    // Exclude "lost significant weight" — "los" inside "lost" followed by " significant weight"
+    if (/^t\s+significant\s+weight/i.test(afterKeyword)) {
+      return false
+    }
   }
 
   // --- Special validation for the BRUIS keyword ---
@@ -521,6 +545,10 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     }
     // Exclude "smoking cessation"
     if (/^ing\s+cessation/i.test(afterKeyword)) {
+      return false
+    }
+    // Exclude "denies drinking alcohol or smoking tobacco"
+    if (/denies\s+drinking\s+alcohol\s+or\s+$/i.test(textBeforeMatch)) {
       return false
     }
   }
