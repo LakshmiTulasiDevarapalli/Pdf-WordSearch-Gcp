@@ -125,6 +125,7 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
             paragraphLower.includes("no further concern") ||
             paragraphLower.includes("any conditions or concerns requiring referral to rehab?") ||
             paragraphLower.includes("no additional concerns noted") ||
+            paragraphLower.includes("no concerns") ||
             /\bno\s+concern\b/i.test(paragraphLower) ||
             /\bno\s+behavioral\s+concerns?\b/i.test(paragraphLower)
           ) {
@@ -147,7 +148,8 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
         if (keywordLower === "food") {
           if (
             /give\s+with\s+food/i.test(block.paragraphText) ||
-            /food\s+and\s+nutritional\s+services/i.test(block.paragraphText)
+            /food\s+and\s+nutritional\s+services/i.test(block.paragraphText) ||
+            /with\s+food/i.test(block.paragraphText)
           ) {
             continue
           }
@@ -177,8 +179,12 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
 
         // --- Paragraph-level exclusion for the DISCOLOR keyword ---
         // Skip paragraphs that mention "maroon discoloration" without other discoloration evidence.
+        // Also skip paragraphs that contain "no discoloration".
         if (keywordLower === "discolor") {
-          if (/maroon\s+discolor/i.test(block.paragraphText)) {
+          if (
+            /maroon\s+discolor/i.test(block.paragraphText) ||
+            /no\s+discoloration/i.test(block.paragraphText)
+          ) {
             continue
           }
         }
@@ -374,9 +380,18 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
 
   // --- Special validation for the FIND keyword ---
   // "find", "finding", "finds" etc. should match, but "findings" should NOT.
+  // Also exclude "find under assessment" and "FINDING OF LUNG FIELD".
   if (keywordLower === "find") {
     const afterKeyword = text.substring(matchIndex + keyword.length)
     if (/^ings\b/i.test(afterKeyword)) {
+      return false
+    }
+    // Exclude "find under assessment"
+    if (/^\s+under\s+assessment/i.test(afterKeyword)) {
+      return false
+    }
+    // Exclude "FINDING OF LUNG FIELD"
+    if (/^ing\s+of\s+lung\s+field/i.test(afterKeyword)) {
       return false
     }
   }
@@ -392,18 +407,25 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
 
   // --- Special validation for the LOS keyword ---
   // "los", "loss", "lose", "losing", "lost" etc. should match, but "losartan", "weight loss", "air loss",
-  // "HEARING LOSS", "VISUAL LOSS", "Visual loss" should NOT.
+  // "HEARING LOSS", "VISUAL LOSS", "Visual loss", "blood loss", "loss of appetite" should NOT.
   if (keywordLower === "los") {
     const afterKeyword = text.substring(matchIndex + keyword.length)
     if (/^artan/i.test(afterKeyword)) {
       return false
     }
-    // Exclude "weight loss", "weight lose", "weight losing", "air loss", "hearing loss", "visual loss" etc.
+    // Exclude "loss of appetite"
+    if (/^s\s+of\s+appetite/i.test(afterKeyword)) {
+      return false
+    }
+    // Exclude "weight loss", "weight lose", "weight losing", "air loss", "hearing loss", "visual loss", "blood loss" etc.
     const textBeforeMatch = text.substring(Math.max(0, matchIndex - 20), matchIndex)
     if (/weight\s+$/i.test(textBeforeMatch) || /air\s+$/i.test(textBeforeMatch)) {
       return false
     }
     if (/hearing\s+$/i.test(textBeforeMatch) || /visual\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+    if (/blood\s+$/i.test(textBeforeMatch)) {
       return false
     }
   }
@@ -415,6 +437,10 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
   if (keywordLower === "bruis") {
     const textBeforeMatch = text.substring(Math.max(0, matchIndex - 50), matchIndex)
     if (/no\s+$/i.test(textBeforeMatch) || /no\s+easy\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+    // Exclude "denies easy bruising"
+    if (/denies\s+easy\s+$/i.test(textBeforeMatch)) {
       return false
     }
     if (/monitor\s+for\s+bleeding\s+or\s+$/i.test(textBeforeMatch)) {
@@ -451,9 +477,11 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
   // --- Special validation for the SMOK keyword ---
   // "smok", "smoke", "smoking", "smoked" etc. should match,
   // but "never smok", "never smoke", "never smoking", "never smoked" etc. should NOT.
-  // Also exclude "non-smoker within the past 30 days", "Former remote smoker", and "Former Smoker"
+  // Also exclude "non-smoker within the past 30 days", "Former remote smoker", "Former Smoker",
+  // "if ever smoked", "quit smoking", and "Current smoker".
   if (keywordLower === "smok") {
     const textBeforeMatch = text.substring(Math.max(0, matchIndex - 40), matchIndex)
+    const afterKeyword = text.substring(matchIndex + keyword.length, matchIndex + keyword.length + 10)
     if (/never\s+$/i.test(textBeforeMatch)) {
       return false
     }
@@ -469,6 +497,18 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     }
     // Exclude "never smoker" (the word "never" anywhere in the 40-char window before "smok")
     if (/\bnever\b/i.test(textBeforeMatch)) {
+      return false
+    }
+    // Exclude "if ever smoked"
+    if (/if\s+ever\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+    // Exclude "quit smoking"
+    if (/quit\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+    // Exclude "Current smoker"
+    if (/current\s+$/i.test(textBeforeMatch)) {
       return false
     }
   }
@@ -518,6 +558,20 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     }
   }
 
+  // --- Special validation for the EXIT keyword ---
+  // "exit", "exiting", "exited" etc. should match,
+  // but "included in exit communications" should NOT.
+  if (keywordLower === "exit") {
+    const afterKeyword = text.substring(matchIndex + keyword.length, matchIndex + keyword.length + 30)
+    if (/^\s+communications/i.test(afterKeyword)) {
+      return false
+    }
+    const textBeforeMatch = text.substring(Math.max(0, matchIndex - 30), matchIndex)
+    if (/included\s+in\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+  }
+
   // --- Special validation for the PACK keyword (additional rules) ---
   // Exclude "packed" and "packet" as well
   if (keywordLower === "pack") {
@@ -538,6 +592,14 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     
     // Exclude "Alcohol abuse with intoxication"
     if (/alcohol\s+$/i.test(textBeforeMatch) && /^\s+with\s+intoxication/i.test(afterKeyword)) {
+      return false
+    }
+    // Exclude "Alcohol abuse" (any context)
+    if (/alcohol\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+    // Exclude "Cocaine abuse"
+    if (/cocaine\s+$/i.test(textBeforeMatch)) {
       return false
     }
     // Exclude "Prior polysubstance abuse"
