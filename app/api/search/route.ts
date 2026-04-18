@@ -98,7 +98,7 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
       // --- Block-level exclusion for "Default PN Type for eMAR Note Text" ---
       // These are structured eMAR checklist notes (e.g. suicidal ideation questionnaires).
       // Their content is templated/routine and should never be surfaced as a keyword match.
-      if (/default\s+pn\s+type\s+for\s+emar\s+note\s+text/i.test(block.type)) {
+      if (/default\s+pn\s+type\s+for\s+emar/i.test(block.type)) {
         continue
       }
 
@@ -951,8 +951,18 @@ function parsePDFIntoBlocks(text: string): NoteBlock[] {
     const location = extractLocationFromPosition(text, effectiveDatePos)
     const admissionDate = extractAdmissionDateFromPosition(text, effectiveDatePos)
 
-    const typeMatch = sectionText.match(/Type:\s*([^\n]+?)(?:\s{2,}|Note\s+Text\s*:|Resident|Author:|Signature:|$)/i)
-    const type = typeMatch ? typeMatch[1].trim() : lastType
+    // Extract the Type field. Two patterns are needed:
+    // 1. Types ending with "Note Text :" (e.g. "Default PN Type for eMAR Note Text :")
+    //    — capture everything up to and including "Note Text", stopping before the colon.
+    // 2. All other types — stop at double-space, known label, or end of line.
+    const typeMatchNoteText = sectionText.match(/Type:\s*([\s\S]+?Note\s+Text)\s*:/i)
+    const typeMatchGeneral = sectionText.match(/Type:\s*([^\n]+?)(?:\s{2,}|\bResident\b|Author:|Signature:|$)/i)
+    const typeRaw = typeMatchNoteText
+      ? typeMatchNoteText[1].trim()
+      : typeMatchGeneral
+        ? typeMatchGeneral[1].trim()
+        : ""
+    const type = typeRaw || lastType
 
     const paragraphText = cleanParagraphText(sectionText)
 
