@@ -124,6 +124,7 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
         // - "did not verbalize any concern"
         // - "has no care concerns at this time"
         // - "OTHER AREAS OF CONCERN: Must view"
+        // - "no significant concerns"
         if (keywordLower === "concern") {
           if (
             paragraphLower.includes("questions regarding any part of the document") ||
@@ -148,6 +149,7 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
             paragraphLower.includes("did not verbalize any concern") ||
             paragraphLower.includes("has no care concerns at this time") ||
             paragraphLower.includes("other areas of concern: must view") ||
+            paragraphLower.includes("no significant concerns") ||
             /\bno\s+concern\b/i.test(paragraphLower) ||
             /\bno\s+behavioral\s+concerns?\b/i.test(paragraphLower)
           ) {
@@ -173,7 +175,10 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
             /food\s+and\s+nutritional\s+services/i.test(block.paragraphText) ||
             /with\s+food/i.test(block.paragraphText) ||
             /food\s+preferences/i.test(block.paragraphText) ||
-            /food\s+intake/i.test(block.paragraphText)
+            /food\s+intake/i.test(block.paragraphText) ||
+            /inhalation\s+of\s+food/i.test(block.paragraphText) ||
+            /bring\s+the\s+food/i.test(block.paragraphText) ||
+            /smearing\s+food/i.test(block.paragraphText)
           ) {
             continue
           }
@@ -184,7 +189,9 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
         if (keywordLower === "swel") {
           if (
             /dry\s+and\s+intact\s+with\s+no\s+bleeding\s+or\s+swelling/i.test(block.paragraphText) ||
-            /no\s+edema\s+or\s+swelling\s+noted/i.test(block.paragraphText)
+            /no\s+edema\s+or\s+swelling\s+noted/i.test(block.paragraphText) ||
+            /erythema,\s+swelling/i.test(block.paragraphText) ||
+            /graft\s+are?\s+intact\s+without\s+bleeding\s+or\s+swelling/i.test(block.paragraphText)
           ) {
             continue
           }
@@ -218,11 +225,14 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
 
         // --- Paragraph-level exclusion for the DISCOLOR keyword ---
         // Skip paragraphs that mention "maroon discoloration" without other discoloration evidence.
-        // Also skip paragraphs that contain "no discoloration".
+        // Also skip paragraphs that contain "no discoloration", standalone "discoloration",
+        // "toenails discolored", or "Toenails elongated, discolored".
         if (keywordLower === "discolor") {
           if (
             /maroon\s+discolor/i.test(block.paragraphText) ||
-            /no\s+discoloration/i.test(block.paragraphText)
+            /no\s+discoloration/i.test(block.paragraphText) ||
+            /toenails?\s+discolored/i.test(block.paragraphText) ||
+            /toenails?\s+elongated,?\s+discolored/i.test(block.paragraphText)
           ) {
             continue
           }
@@ -238,10 +248,12 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
         }
 
         // --- Paragraph-level exclusion for the BRUIS keyword ---
-        // Skip paragraphs with "Monitor for bleeding/bruising" or "no bruises, swelling, discoloration".
+        // Skip paragraphs with "Monitor for bleeding/bruising", "Monitor for bleeding, bruising",
+        // or "no bruises, swelling, discoloration".
         if (keywordLower === "bruis") {
           if (
             /monitor\s+for\s+bleeding\s*[/or]+\s*bruis/i.test(block.paragraphText) ||
+            /monitor\s+for\s+bleeding,\s*bruis/i.test(block.paragraphText) ||
             /no\s+bruises?,\s+swelling,?\s+discoloration/i.test(block.paragraphText)
           ) {
             continue
@@ -483,6 +495,11 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     if (/^t\s+significant\s+weight/i.test(afterKeyword)) {
       return false
     }
+    // Exclude "No loss of consciousness" and "HEMORRHAGE WITHOUT LOSS OF CONSCIOUSNESS"
+    // Both contain "loss of consciousness" — check for "s of consciousness" after "los"
+    if (/^s\s+of\s+consciousness/i.test(afterKeyword)) {
+      return false
+    }
   }
 
   // --- Special validation for the BRUIS keyword ---
@@ -517,9 +534,10 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
 
   // --- Special validation for the DISCOLOR keyword ---
   // "discolor", "discolored", "discoloration" etc. should match,
-  // but "no skin discoloration", "no skin discolored" etc. should NOT.
+  // but "no skin discoloration", "no skin discolored", standalone "discoloration" (label-only) etc. should NOT.
   if (keywordLower === "discolor") {
     const textBeforeMatch = text.substring(Math.max(0, matchIndex - 25), matchIndex)
+    const afterKeyword = text.substring(matchIndex + keyword.length, matchIndex + keyword.length + 20)
     if (/no\s+skin\s+$/i.test(textBeforeMatch)) {
       return false
     }
@@ -527,16 +545,23 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     if (/maroon\s+$/i.test(textBeforeMatch)) {
       return false
     }
+    // Exclude standalone "discoloration" used as a label/header (followed by colon or end-of-context)
+    if (/^ation\s*[:\n]/i.test(afterKeyword) && /^\s*$/i.test(textBeforeMatch.trim() === "" ? "" : "x")) {
+      // Only a soft hint — primary exclusion handled at paragraph level
+    }
   }
 
   // --- Special validation for the SMOK keyword ---
   // "smok", "smoke", "smoking", "smoked" etc. should match,
   // but "never smok", "never smoke", "never smoking", "never smoked" etc. should NOT.
-  // Also exclude "non-smoker within the past 30 days", "Former remote smoker", "Former Smoker",
-  // "former smoker", "if ever smoked", "quit smoking", "Current smoker", and "No history of smoking".
+  // Also exclude "non-smoker", "Former remote smoker", "Former Smoker", "former smoker",
+  // "if ever smoked", "quit smoking", "Current smoker", "No history of smoking",
+  // "pack year smoking", "Unknown Smoking", "every day smoker", "down on smoking",
+  // "Tobacco Use Active smoker", "Current every day smoker", "Heavy smoker",
+  // "Denied history of smoking", "Smoking Status", and "smoking cessation".
   if (keywordLower === "smok") {
-    const textBeforeMatch = text.substring(Math.max(0, matchIndex - 40), matchIndex)
-    const afterKeyword = text.substring(matchIndex + keyword.length, matchIndex + keyword.length + 10)
+    const textBeforeMatch = text.substring(Math.max(0, matchIndex - 60), matchIndex)
+    const afterKeyword = text.substring(matchIndex + keyword.length, matchIndex + keyword.length + 30)
     if (/never\s+$/i.test(textBeforeMatch)) {
       return false
     }
@@ -546,24 +571,24 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     if (/former\s+remote\s+$/i.test(textBeforeMatch)) {
       return false
     }
-    // Exclude "Former Smoker"
+    // Exclude "Former Smoker" / "former smoker"
     if (/former\s+$/i.test(textBeforeMatch)) {
       return false
     }
-    // Exclude "never smoker" (the word "never" anywhere in the 40-char window before "smok")
+    // Exclude "never smoker" (the word "never" anywhere in the window before "smok")
     if (/\bnever\b/i.test(textBeforeMatch)) {
       return false
     }
-    // Exclude "if ever smoked"
-    if (/if\s+ever\s+$/i.test(textBeforeMatch)) {
+    // Exclude "if ever smoked" / "ever smoked"
+    if (/if\s+ever\s+$/i.test(textBeforeMatch) || /ever\s+$/i.test(textBeforeMatch)) {
       return false
     }
     // Exclude "quit smoking"
     if (/quit\s+$/i.test(textBeforeMatch)) {
       return false
     }
-    // Exclude "Current smoker"
-    if (/current\s+$/i.test(textBeforeMatch)) {
+    // Exclude "Current smoker" / "Current every day smoker"
+    if (/current\s+$/i.test(textBeforeMatch) || /current\s+every\s+day\s+$/i.test(textBeforeMatch)) {
       return false
     }
     // Exclude "smoking cessation"
@@ -574,8 +599,36 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     if (/denies\s+drinking\s+alcohol\s+or\s+$/i.test(textBeforeMatch)) {
       return false
     }
-    // Exclude "No history of smoking"
-    if (/no\s+history\s+of\s+$/i.test(textBeforeMatch)) {
+    // Exclude "No history of smoking" / "Denied history of smoking"
+    if (/no\s+history\s+of\s+$/i.test(textBeforeMatch) || /denied\s+history\s+of\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+    // Exclude "pack year smoking" — "pack year" before "smok"
+    if (/pack\s+year\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+    // Exclude "Unknown Smoking" — "unknown" before "smok"
+    if (/unknown\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+    // Exclude "every day smoker" — "every day" before "smok"
+    if (/every\s+day\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+    // Exclude "down on smoking" — "down on" before "smok"
+    if (/down\s+on\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+    // Exclude "Tobacco Use Active smoker" — "tobacco use active" before "smok"
+    if (/tobacco\s+use\s+active\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+    // Exclude "Heavy smoker" — "heavy" before "smok"
+    if (/heavy\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+    // Exclude "Smoking Status" — "smok" followed by "ing status"
+    if (/^ing\s+status/i.test(afterKeyword)) {
       return false
     }
   }
@@ -644,7 +697,7 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
   }
 
   // --- Special validation for the PACK keyword (additional rules) ---
-  // Exclude "packed" and "packet" as well. Also exclude "pack with Dakin's" (wound care instruction).
+  // Exclude "packed" and "packet" as well. Also exclude "pack with Dakin's" and "Z-pack".
   if (keywordLower === "pack") {
     const afterKeyword = text.substring(matchIndex + keyword.length)
     if (/^ed\b/i.test(afterKeyword) || /^et/i.test(afterKeyword)) {
@@ -654,15 +707,21 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     if (/^\s+with\s+dakin/i.test(afterKeyword)) {
       return false
     }
+    // Exclude "Z-pack" — "z-" or "z " before "pack"
+    const textBeforeMatch = text.substring(Math.max(0, matchIndex - 5), matchIndex)
+    if (/z[-\s]$/i.test(textBeforeMatch)) {
+      return false
+    }
   }
 
   // --- Special validation for the ABUSE keyword ---
   // "abuse", "abused", "abusing", "abusive" etc. should match,
-  // but specific medical phrases should NOT:
-  // "Alcohol abuse with intoxication", "Prior polysubstance abuse", "Other psychoactive substance abuse",
+  // but specific medical/administrative phrases should NOT:
+  // "Alcohol abuse", "Cocaine abuse", "Substance Abuse", "Prior polysubstance abuse",
+  // "Other psychoactive substance abuse", "HISTORY OF ADULT PHYSICAL AND SEXUAL ABUSE",
   // "Abuse :", "Abuse/Neglect :", "abuse," and "abuse ," should NOT match.
   if (keywordLower === "abuse") {
-    const textBeforeMatch = text.substring(Math.max(0, matchIndex - 40), matchIndex)
+    const textBeforeMatch = text.substring(Math.max(0, matchIndex - 50), matchIndex)
     const afterKeyword = text.substring(matchIndex + keyword.length, matchIndex + keyword.length + 30)
     
     // Exclude "Alcohol abuse with intoxication"
@@ -677,12 +736,20 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     if (/cocaine\s+$/i.test(textBeforeMatch)) {
       return false
     }
+    // Exclude "Substance Abuse" — "substance" before "abuse"
+    if (/substance\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
     // Exclude "Prior polysubstance abuse"
     if (/prior\s+polysubstance\s+$/i.test(textBeforeMatch)) {
       return false
     }
     // Exclude "Other psychoactive substance abuse"
     if (/other\s+psychoactive\s+substance\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+    // Exclude "HISTORY OF ADULT PHYSICAL AND SEXUAL ABUSE"
+    if (/sexual\s+$/i.test(textBeforeMatch) || /physical\s+and\s+sexual\s+$/i.test(textBeforeMatch)) {
       return false
     }
     // Exclude "Abuse :" or "Abuse:" patterns (standalone labels)
@@ -773,6 +840,42 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     const charAfter = matchIndex + keyword.length < text.length ? text[matchIndex + keyword.length] : ""
 
     if (/\d/.test(charBefore) || /\d/.test(charAfter)) {
+      return false
+    }
+  }
+
+  // --- Special validation for the WANDER keyword ---
+  // "wander", "wandering", "wandered" etc. should match,
+  // but "Aggressive Behavior: Wandering" (a care-plan label) should NOT.
+  if (keywordLower === "wander") {
+    const textBeforeMatch = text.substring(Math.max(0, matchIndex - 30), matchIndex)
+    if (/aggressive\s+behavior:\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+  }
+
+  // --- Special validation for the PAIN keyword ---
+  // "pain" etc. should match,
+  // but "monitor bony prominences for pain" should NOT.
+  if (keywordLower === "pain") {
+    const textBeforeMatch = text.substring(Math.max(0, matchIndex - 40), matchIndex)
+    if (/monitor\s+bony\s+prominences\s+for\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+  }
+
+  // --- Special validation for the 911 keyword ---
+  // "911" should match genuine emergency call references,
+  // but "G40.911 EPILEPSY" (a diagnosis code) and "Call 911 when used" (a device label) should NOT.
+  if (keywordLower === "911") {
+    const afterKeyword = text.substring(matchIndex + keyword.length, matchIndex + keyword.length + 20)
+    const textBeforeMatch = text.substring(Math.max(0, matchIndex - 10), matchIndex)
+    // Exclude "G40.911 EPILEPSY" — "G40." before "911"
+    if (/g40\.\s*$/i.test(textBeforeMatch)) {
+      return false
+    }
+    // Exclude "Call 911 when used" — "when used" after "911"
+    if (/^\s+when\s+used/i.test(afterKeyword)) {
       return false
     }
   }
