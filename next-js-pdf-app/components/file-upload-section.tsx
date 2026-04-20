@@ -57,6 +57,7 @@ const DEFAULT_KEYWORDS = [
   "MPD",
   "OMBUDSMAN",
   "APS",
+  "POLICE",
   // "ERROR",
   // "CODE",
   // "CHANGE",
