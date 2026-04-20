@@ -55,6 +55,8 @@ const DEFAULT_KEYWORDS = [
   "STOLE",
   "911",
   "MPD",
+  "OMBUDSMAN",
+  "APS",
   // "ERROR",
   // "CODE",
   // "CHANGE",
