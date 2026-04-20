@@ -125,6 +125,8 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
         // - "has no care concerns at this time"
         // - "OTHER AREAS OF CONCERN: Must view"
         // - "no significant concerns"
+        // - "No abdominal concern"
+        // - "No abnormal concern too"
         if (keywordLower === "concern") {
           if (
             paragraphLower.includes("questions regarding any part of the document") ||
@@ -150,6 +152,8 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
             paragraphLower.includes("has no care concerns at this time") ||
             paragraphLower.includes("other areas of concern: must view") ||
             paragraphLower.includes("no significant concerns") ||
+            paragraphLower.includes("no abdominal concern") ||
+            paragraphLower.includes("no abnormal concern") ||
             /\bno\s+concern\b/i.test(paragraphLower) ||
             /\bno\s+behavioral\s+concerns?\b/i.test(paragraphLower)
           ) {
@@ -178,7 +182,8 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
             /food\s+intake/i.test(block.paragraphText) ||
             /inhalation\s+of\s+food/i.test(block.paragraphText) ||
             /bring\s+the\s+food/i.test(block.paragraphText) ||
-            /smearing\s+food/i.test(block.paragraphText)
+            /smearing\s+food/i.test(block.paragraphText) ||
+            /holding\s+food\s+in\s+mouth[/\\]?cheeks?/i.test(block.paragraphText)
           ) {
             continue
           }
@@ -191,7 +196,8 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
             /dry\s+and\s+intact\s+with\s+no\s+bleeding\s+or\s+swelling/i.test(block.paragraphText) ||
             /no\s+edema\s+or\s+swelling\s+noted/i.test(block.paragraphText) ||
             /erythema,\s+swelling/i.test(block.paragraphText) ||
-            /graft\s+are?\s+intact\s+without\s+bleeding\s+or\s+swelling/i.test(block.paragraphText)
+            /graft\s+are?\s+intact\s+without\s+bleeding\s+or\s+swelling/i.test(block.paragraphText) ||
+            /including\s+absence\s+of\s+redness,?\s+swelling/i.test(block.paragraphText)
           ) {
             continue
           }
@@ -748,7 +754,7 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     if (/other\s+psychoactive\s+substance\s+$/i.test(textBeforeMatch)) {
       return false
     }
-    // Exclude "HISTORY OF ADULT PHYSICAL AND SEXUAL ABUSE"
+    // Exclude "HISTORY OF ADULT PHYSICAL AND SEXUAL ABUSE" — "sexual" immediately before "abuse"
     if (/sexual\s+$/i.test(textBeforeMatch) || /physical\s+and\s+sexual\s+$/i.test(textBeforeMatch)) {
       return false
     }
