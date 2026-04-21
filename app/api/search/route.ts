@@ -129,6 +129,10 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
         // - "No abnormal concern too"
         // - "no complaints or concerns"
         // - "concerning for malignancy"
+        // - "did not express any concerns" (and spelling variants)
+        // - "No major concerns noted"
+        // - "no behavioral problems or concerns"
+        // - "SIGNS CONCERNING FOOD"
         if (keywordLower === "concern") {
           if (
             paragraphLower.includes("questions regarding any part of the document") ||
@@ -158,6 +162,13 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
             paragraphLower.includes("no abnormal concern") ||
             paragraphLower.includes("no complaints or concerns") ||
             paragraphLower.includes("concerning for malignancy") ||
+            paragraphLower.includes("did not express any concerns") ||
+            paragraphLower.includes("didnot express any concerns") ||
+            paragraphLower.includes("didn't express any concerns") ||
+            paragraphLower.includes("didnt express any concerns") ||
+            paragraphLower.includes("no major concerns noted") ||
+            paragraphLower.includes("no behavioral problems or concerns") ||
+            paragraphLower.includes("signs concerning food") ||
             /\bno\s+concern\b/i.test(paragraphLower) ||
             /\bno\s+behavioral\s+concerns?\b/i.test(paragraphLower)
           ) {
@@ -187,7 +198,8 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
             /inhalation\s+of\s+food/i.test(block.paragraphText) ||
             /bring\s+the\s+food/i.test(block.paragraphText) ||
             /smearing\s+food/i.test(block.paragraphText) ||
-            /holding\s+food\s+in\s+mouth[/\\]?cheeks?/i.test(block.paragraphText)
+            /holding\s+food\s+in\s+mouth[/\\]?cheeks?/i.test(block.paragraphText) ||
+            /signs\s+concerning\s+food/i.test(block.paragraphText)
           ) {
             continue
           }
@@ -546,6 +558,10 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     // Exclude "No loss of consciousness" and "HEMORRHAGE WITHOUT LOSS OF CONSCIOUSNESS"
     // Both contain "loss of consciousness" — check for "s of consciousness" after "los"
     if (/^s\s+of\s+consciousness/i.test(afterKeyword)) {
+      return false
+    }
+    // Exclude "weight-loss" (hyphenated variant) — "weight-" before "los"
+    if (/weight-$/i.test(textBeforeMatch)) {
       return false
     }
   }
@@ -940,7 +956,8 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
 
   // --- Special validation for the 911 keyword ---
   // "911" should match genuine emergency call references,
-  // but "G40.911 EPILEPSY" (a diagnosis code) and "Call 911 when used" (a device label) should NOT.
+  // but "G40.911 EPILEPSY" (a diagnosis code), "Call 911 when used" (a device label),
+  // and "911 NON-PRESSURE" (a wound classification code) should NOT.
   if (keywordLower === "911") {
     const afterKeyword = text.substring(matchIndex + keyword.length, matchIndex + keyword.length + 20)
     const textBeforeMatch = text.substring(Math.max(0, matchIndex - 10), matchIndex)
@@ -950,6 +967,10 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     }
     // Exclude "Call 911 when used" — "when used" after "911"
     if (/^\s+when\s+used/i.test(afterKeyword)) {
+      return false
+    }
+    // Exclude "911 NON-PRESSURE" — "non-pressure" after "911"
+    if (/^\s+non-pressure/i.test(afterKeyword)) {
       return false
     }
   }
