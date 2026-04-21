@@ -201,7 +201,8 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
             /no\s+edema\s+or\s+swelling\s+noted/i.test(block.paragraphText) ||
             /erythema,\s+swelling/i.test(block.paragraphText) ||
             /graft\s+are?\s+intact\s+without\s+bleeding\s+or\s+swelling/i.test(block.paragraphText) ||
-            /including\s+absence\s+of\s+redness,?\s+swelling/i.test(block.paragraphText)
+            /including\s+absence\s+of\s+redness,?\s+swelling/i.test(block.paragraphText) ||
+            /no\s+signs\s+of\s+infiltration\s+redness,?\s+swelling/i.test(block.paragraphText)
           ) {
             continue
           }
@@ -680,6 +681,14 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     }
     // Exclude "Denies smoking" — "denies" before "smok"
     if (/denies\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+    // Exclude "Daily smoker" — "daily" before "smok"
+    if (/daily\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+    // Exclude "chronic smoking history" — "chronic" before "smok"
+    if (/chronic\s+$/i.test(textBeforeMatch)) {
       return false
     }
   }
