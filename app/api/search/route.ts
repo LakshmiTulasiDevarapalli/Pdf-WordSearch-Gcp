@@ -127,6 +127,8 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
         // - "no significant concerns"
         // - "No abdominal concern"
         // - "No abnormal concern too"
+        // - "no complaints or concerns"
+        // - "concerning for malignancy"
         if (keywordLower === "concern") {
           if (
             paragraphLower.includes("questions regarding any part of the document") ||
@@ -154,6 +156,8 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
             paragraphLower.includes("no significant concerns") ||
             paragraphLower.includes("no abdominal concern") ||
             paragraphLower.includes("no abnormal concern") ||
+            paragraphLower.includes("no complaints or concerns") ||
+            paragraphLower.includes("concerning for malignancy") ||
             /\bno\s+concern\b/i.test(paragraphLower) ||
             /\bno\s+behavioral\s+concerns?\b/i.test(paragraphLower)
           ) {
@@ -208,6 +212,7 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
         // Also skip paragraphs that mention "Glen Burnie" (a place name in Maryland).
         // Also skip paragraphs that contain "No complaints of burning with voiding".
         // Also skip paragraphs that contain "Resident is at Risk for burns due to unable to safely manage".
+        // Also skip paragraphs that contain "denied pain or burning upon urination".
         if (keywordLower === "burn") {
           // If every occurrence of "burn" in the paragraph is part of "burnoll", skip it
           const burnMatches = block.paragraphText.match(/burn\w*/gi) || []
@@ -227,16 +232,21 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
           if (/resident\s+is\s+at\s+risk\s+for\s+burns?\s+due\s+to\s+unable\s+to\s+safely\s+manage/i.test(block.paragraphText)) {
             continue
           }
+          // Exclude "denied pain or burning upon urination"
+          if (/denied\s+pain\s+or\s+burning\s+upon\s+urination/i.test(block.paragraphText)) {
+            continue
+          }
         }
 
         // --- Paragraph-level exclusion for the DISCOLOR keyword ---
         // Skip paragraphs that mention "maroon discoloration" without other discoloration evidence.
-        // Also skip paragraphs that contain "no discoloration", standalone "discoloration",
+        // Also skip paragraphs that contain "no discoloration", "no signs of discoloration",
         // "toenails discolored", or "Toenails elongated, discolored".
         if (keywordLower === "discolor") {
           if (
             /maroon\s+discolor/i.test(block.paragraphText) ||
             /no\s+discoloration/i.test(block.paragraphText) ||
+            /no\s+signs\s+of\s+discoloration/i.test(block.paragraphText) ||
             /toenails?\s+discolored/i.test(block.paragraphText) ||
             /toenails?\s+elongated,?\s+discolored/i.test(block.paragraphText)
           ) {
@@ -261,6 +271,37 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
             /monitor\s+for\s+bleeding\s*[/or]+\s*bruis/i.test(block.paragraphText) ||
             /monitor\s+for\s+bleeding,\s*bruis/i.test(block.paragraphText) ||
             /no\s+bruises?,\s+swelling,?\s+discoloration/i.test(block.paragraphText)
+          ) {
+            continue
+          }
+        }
+
+        // --- Paragraph-level exclusion for the PAIN keyword ---
+        // Skip paragraphs that contain "denied pain or burning upon urination".
+        if (keywordLower === "pain") {
+          if (
+            /denied\s+pain\s+or\s+burning\s+upon\s+urination/i.test(block.paragraphText)
+          ) {
+            continue
+          }
+        }
+
+        // --- Paragraph-level exclusion for the WANDER keyword ---
+        // Skip paragraphs that contain "denied pain or burning upon urination Aggressive Behavior: Wandering"
+        // (a routine care-plan template phrase).
+        if (keywordLower === "wander") {
+          if (
+            /denied\s+pain\s+or\s+burning\s+upon\s+urination/i.test(block.paragraphText)
+          ) {
+            continue
+          }
+        }
+
+        // --- Paragraph-level exclusion for the SEX keyword ---
+        // Skip paragraphs that contain "adult physical and sexual abuse" (a care history label).
+        if (keywordLower === "sex") {
+          if (
+            /adult\s+physical\s+and\s+sexual\s+abuse/i.test(block.paragraphText)
           ) {
             continue
           }
@@ -637,6 +678,10 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     if (/^ing\s+status/i.test(afterKeyword)) {
       return false
     }
+    // Exclude "Denies smoking" — "denies" before "smok"
+    if (/denies\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
   }
 
   // --- Special validation for the SWEL keyword ---
@@ -690,7 +735,7 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
 
   // --- Special validation for the EXIT keyword ---
   // "exit", "exiting", "exited" etc. should match,
-  // but "included in exit communications" should NOT.
+  // but "included in exit communications" and "during exit communication" should NOT.
   if (keywordLower === "exit") {
     const afterKeyword = text.substring(matchIndex + keyword.length, matchIndex + keyword.length + 30)
     if (/^\s+communications/i.test(afterKeyword)) {
@@ -700,10 +745,15 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     if (/included\s+in\s+$/i.test(textBeforeMatch)) {
       return false
     }
+    // Exclude "during exit communication"
+    if (/during\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
   }
 
   // --- Special validation for the PACK keyword (additional rules) ---
-  // Exclude "packed" and "packet" as well. Also exclude "pack with Dakin's" and "Z-pack".
+  // Exclude "packed" and "packet" as well. Also exclude "pack with Dakin's", "Z-pack",
+  // "pack with calcium alginate", and "pack per day".
   if (keywordLower === "pack") {
     const afterKeyword = text.substring(matchIndex + keyword.length)
     if (/^ed\b/i.test(afterKeyword) || /^et/i.test(afterKeyword)) {
@@ -711,6 +761,14 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     }
     // Exclude "pack with Dakin's"
     if (/^\s+with\s+dakin/i.test(afterKeyword)) {
+      return false
+    }
+    // Exclude "pack with calcium alginate"
+    if (/^\s+with\s+calcium\s+alginate/i.test(afterKeyword)) {
+      return false
+    }
+    // Exclude "pack per day"
+    if (/^\s+per\s+day/i.test(afterKeyword)) {
       return false
     }
     // Exclude "Z-pack" — "z-" or "z " before "pack"
@@ -754,7 +812,8 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     if (/other\s+psychoactive\s+substance\s+$/i.test(textBeforeMatch)) {
       return false
     }
-    // Exclude "HISTORY OF ADULT PHYSICAL AND SEXUAL ABUSE" — "sexual" immediately before "abuse"
+    // Exclude "HISTORY OF ADULT PHYSICAL AND SEXUAL ABUSE" / "adult physical and sexual abuse"
+    // — "sexual" immediately before "abuse"
     if (/sexual\s+$/i.test(textBeforeMatch) || /physical\s+and\s+sexual\s+$/i.test(textBeforeMatch)) {
       return false
     }
