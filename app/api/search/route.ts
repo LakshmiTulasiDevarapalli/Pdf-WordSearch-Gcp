@@ -948,6 +948,11 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     if (/^[\s]*,/i.test(afterKeyword)) {
       return false
     }
+    // Exclude "Has the patient been accused of abuse towards others" —
+    // "accused of" before "abuse"
+    if (/accused\s+of\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
   }
 
   // --- Special validation for the MISSING keyword ---
@@ -1050,13 +1055,17 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
 
   // --- Special validation for the 911 keyword ---
   // "911" should match genuine emergency call references,
-  // but "G40.911 EPILEPSY" (a diagnosis code), "Call 911 when used" (a device label),
-  // and "911 NON-PRESSURE" (a wound classification code) should NOT.
+  // but "G40.911 EPILEPSY" (a diagnosis code), "C50.911" (a breast cancer diagnosis code),
+  // "Call 911 when used" (a device label), and "911 NON-PRESSURE" (a wound classification code) should NOT.
   if (keywordLower === "911") {
     const afterKeyword = text.substring(matchIndex + keyword.length, matchIndex + keyword.length + 20)
     const textBeforeMatch = text.substring(Math.max(0, matchIndex - 10), matchIndex)
     // Exclude "G40.911 EPILEPSY" — "G40." before "911"
     if (/g40\.\s*$/i.test(textBeforeMatch)) {
+      return false
+    }
+    // Exclude "C50.911" — "C50." before "911"
+    if (/c50\.\s*$/i.test(textBeforeMatch)) {
       return false
     }
     // Exclude "Call 911 when used" — "when used" after "911"
