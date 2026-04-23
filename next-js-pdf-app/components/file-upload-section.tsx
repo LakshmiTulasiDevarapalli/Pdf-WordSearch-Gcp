@@ -58,6 +58,7 @@ const DEFAULT_KEYWORDS = [
   "OMBUDSMAN",
   "APS",
   "POLICE",
+  "CHOKE",
   // "ERROR",
   // "CODE",
   // "CHANGE",
