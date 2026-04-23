@@ -169,6 +169,9 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
             paragraphLower.includes("no major concerns noted") ||
             paragraphLower.includes("no behavioral problems or concerns") ||
             paragraphLower.includes("signs concerning food") ||
+            paragraphLower.includes("no complains and concerns") ||
+            paragraphLower.includes("no complaints and concerns") ||
+            paragraphLower.includes("no questions or concerns") ||
             /\bno\s+concern\b/i.test(paragraphLower) ||
             /\bno\s+behavioral\s+concerns?\b/i.test(paragraphLower)
           ) {
@@ -199,7 +202,8 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
             /bring\s+the\s+food/i.test(block.paragraphText) ||
             /smearing\s+food/i.test(block.paragraphText) ||
             /holding\s+food\s+in\s+mouth[/\\]?cheeks?/i.test(block.paragraphText) ||
-            /signs\s+concerning\s+food/i.test(block.paragraphText)
+            /signs\s+concerning\s+food/i.test(block.paragraphText) ||
+            /no\s+food\s+traps/i.test(block.paragraphText)
           ) {
             continue
           }
@@ -214,7 +218,8 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
             /erythema,\s+swelling/i.test(block.paragraphText) ||
             /graft\s+are?\s+intact\s+without\s+bleeding\s+or\s+swelling/i.test(block.paragraphText) ||
             /including\s+absence\s+of\s+redness,?\s+swelling/i.test(block.paragraphText) ||
-            /no\s+signs\s+of\s+infiltration\s+redness,?\s+swelling/i.test(block.paragraphText)
+            /no\s+signs\s+of\s+infiltration\s+redness,?\s+swelling/i.test(block.paragraphText) ||
+            /localized\s+swelling/i.test(block.paragraphText)
           ) {
             continue
           }
@@ -249,6 +254,10 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
           if (/denied\s+pain\s+or\s+burning\s+upon\s+urination/i.test(block.paragraphText)) {
             continue
           }
+          // Exclude "rectal burning"
+          if (/rectal\s+burning/i.test(block.paragraphText)) {
+            continue
+          }
         }
 
         // --- Paragraph-level exclusion for the DISCOLOR keyword ---
@@ -269,9 +278,12 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
 
         // --- Paragraph-level exclusion for the HURT keyword ---
         // Skip paragraphs that contain the specific phrase "better off dead, or of hurting"
-        // (and close variants). Any other use of "hurt" should still be captured.
+        // (and close variants), or "CARLOS HURT" (a person's name).
         if (keywordLower === "hurt") {
-          if (/better\s+off\s+dead,?\s+or\s+of\s+hurting/i.test(block.paragraphText)) {
+          if (
+            /better\s+off\s+dead,?\s+or\s+of\s+hurting/i.test(block.paragraphText) ||
+            /carlos\s+hurt/i.test(block.paragraphText)
+          ) {
             continue
           }
         }
@@ -316,6 +328,41 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
           if (
             /adult\s+physical\s+and\s+sexual\s+abuse/i.test(block.paragraphText)
           ) {
+            continue
+          }
+        }
+
+        // --- Paragraph-level exclusion for the OMBUDSMAN keyword ---
+        // Skip paragraphs that contain "6-108 sent to Ombudsman" (an administrative tracking phrase).
+        if (keywordLower === "ombudsman") {
+          if (/6-108\s+sent\s+to\s+ombudsman/i.test(block.paragraphText)) {
+            continue
+          }
+        }
+
+        // --- Paragraph-level exclusion for the HIT keyword ---
+        // Skip paragraphs that contain "History of HIT/heparin allergy" (a medical history label).
+        if (keywordLower === "hit") {
+          if (/history\s+of\s+hit[/\\]?heparin\s+allergy/i.test(block.paragraphText)) {
+            continue
+          }
+        }
+
+        // --- Paragraph-level exclusion for the 1:1 keyword ---
+        // Skip paragraphs that contain routine activity/stimulation template phrases.
+        if (keywordLower === "1:1") {
+          if (
+            /activities\s+reviewed\s+activities\s+of\s+interest[/\\]?1:1\s+visits/i.test(block.paragraphText) ||
+            /seen\s+for\s+1:1\s+social\s+and\s+sensory\s+stimulation/i.test(block.paragraphText)
+          ) {
+            continue
+          }
+        }
+
+        // --- Paragraph-level exclusion for the FIND keyword ---
+        // Skip paragraphs that contain "incidental finding" (a radiology/clinical report phrase).
+        if (keywordLower === "find") {
+          if (/incidental\s+finding/i.test(block.paragraphText)) {
             continue
           }
         }
@@ -491,7 +538,7 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
 
   // --- Special validation for the FIND keyword ---
   // "find", "finding", "finds" etc. should match, but "findings" should NOT.
-  // Also exclude "find under assessment" and "FINDING OF LUNG FIELD".
+  // Also exclude "find under assessment", "FINDING OF LUNG FIELD", and "incidental finding".
   if (keywordLower === "find") {
     const afterKeyword = text.substring(matchIndex + keyword.length)
     if (/^ings\b/i.test(afterKeyword)) {
@@ -503,6 +550,11 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     }
     // Exclude "FINDING OF LUNG FIELD"
     if (/^ing\s+of\s+lung\s+field/i.test(afterKeyword)) {
+      return false
+    }
+    // Exclude "incidental finding" — "incidental" before "find"
+    const textBeforeMatch = text.substring(Math.max(0, matchIndex - 15), matchIndex)
+    if (/incidental\s+$/i.test(textBeforeMatch)) {
       return false
     }
   }
@@ -562,6 +614,31 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     }
     // Exclude "weight-loss" (hyphenated variant) — "weight-" before "los"
     if (/weight-$/i.test(textBeforeMatch)) {
+      return false
+    }
+    // Exclude "Vision loss" — "vision" before "los"
+    if (/vision\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+    // Exclude "complete skin loss" — "complete skin" before "los"
+    if (/complete\s+skin\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+    // Exclude "age-related volume, loss" — "volume," or "volume" before "los"
+    if (/volume,?\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+    // Exclude "tissue loss" — "tissue" before "los"
+    if (/tissue\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+    // Exclude "MUSCULOSKELETAL" — "los" appears inside this word; caught by word-prefix rule,
+    // but add explicit afterKeyword check for safety
+    if (/^keletal/i.test(afterKeyword)) {
+      return false
+    }
+    // Exclude "loss of urine" — "s of urine" after "los"
+    if (/^s\s+of\s+urine/i.test(afterKeyword)) {
       return false
     }
   }
@@ -667,8 +744,8 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     if (/no\s+history\s+of\s+$/i.test(textBeforeMatch) || /denied\s+history\s+of\s+$/i.test(textBeforeMatch)) {
       return false
     }
-    // Exclude "pack year smoking" — "pack year" before "smok"
-    if (/pack\s+year\s+$/i.test(textBeforeMatch)) {
+    // Exclude "pack year smoking" / "pack-year smoking" — "pack year" or "pack-year" before "smok"
+    if (/pack[-\s]year\s+$/i.test(textBeforeMatch)) {
       return false
     }
     // Exclude "Unknown Smoking" — "unknown" before "smok"
@@ -705,6 +782,15 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     }
     // Exclude "chronic smoking history" — "chronic" before "smok"
     if (/chronic\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+    // Exclude "Does not smoke" — "does not" before "smok"
+    if (/does\s+not\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+    // Exclude "Therapy Pack Unknown Smoking" — "unknown" before "smok" (already covered)
+    // and "therapy pack unknown" before "smok" for extra specificity
+    if (/therapy\s+pack\s+unknown\s+$/i.test(textBeforeMatch)) {
       return false
     }
   }
@@ -778,7 +864,7 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
 
   // --- Special validation for the PACK keyword (additional rules) ---
   // Exclude "packed" and "packet" as well. Also exclude "pack with Dakin's", "Z-pack",
-  // "pack with calcium alginate", and "pack per day".
+  // "pack with calcium alginate", "pack per day", "packing strip", and "Therapy Pack Unknown Smoking".
   if (keywordLower === "pack") {
     const afterKeyword = text.substring(matchIndex + keyword.length)
     if (/^ed\b/i.test(afterKeyword) || /^et/i.test(afterKeyword)) {
@@ -794,6 +880,14 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     }
     // Exclude "pack per day"
     if (/^\s+per\s+day/i.test(afterKeyword)) {
+      return false
+    }
+    // Exclude "packing strip" — "pack" followed by "ing strip"
+    if (/^ing\s+strip/i.test(afterKeyword)) {
+      return false
+    }
+    // Exclude "Therapy Pack Unknown Smoking" — "pack" followed by " unknown smoking"
+    if (/^\s+unknown\s+smoking/i.test(afterKeyword)) {
       return false
     }
     // Exclude "Z-pack" — "z-" or "z " before "pack"
