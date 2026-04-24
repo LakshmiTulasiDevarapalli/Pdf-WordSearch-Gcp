@@ -172,6 +172,7 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
             paragraphLower.includes("no complains and concerns") ||
             paragraphLower.includes("no complaints and concerns") ||
             paragraphLower.includes("no questions or concerns") ||
+            paragraphLower.includes("if any urgent podiatric concerns") ||
             /\bno\s+concern\b/i.test(paragraphLower) ||
             /\bno\s+behavioral\s+concerns?\b/i.test(paragraphLower)
           ) {
@@ -219,7 +220,8 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
             /graft\s+are?\s+intact\s+without\s+bleeding\s+or\s+swelling/i.test(block.paragraphText) ||
             /including\s+absence\s+of\s+redness,?\s+swelling/i.test(block.paragraphText) ||
             /no\s+signs\s+of\s+infiltration\s+redness,?\s+swelling/i.test(block.paragraphText) ||
-            /localized\s+swelling/i.test(block.paragraphText)
+            /localized\s+swelling/i.test(block.paragraphText) ||
+            /leg\s+swelling\s+and\s+cerebral\s+edema/i.test(block.paragraphText)
           ) {
             continue
           }
@@ -335,7 +337,10 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
         // --- Paragraph-level exclusion for the OMBUDSMAN keyword ---
         // Skip paragraphs that contain "6-108 sent to Ombudsman" (an administrative tracking phrase).
         if (keywordLower === "ombudsman") {
-          if (/6-108\s+sent\s+to\s+ombudsman/i.test(block.paragraphText)) {
+          if (
+            /6-108\s+sent\s+to\s+ombudsman/i.test(block.paragraphText) ||
+            /sent\s+to\s+the\s+ombudsman/i.test(block.paragraphText)
+          ) {
             continue
           }
         }
@@ -639,6 +644,10 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     }
     // Exclude "loss of urine" — "s of urine" after "los"
     if (/^s\s+of\s+urine/i.test(afterKeyword)) {
+      return false
+    }
+    // Exclude "loss of protective sensation" — "s of protective" after "los"
+    if (/^s\s+of\s+protective/i.test(afterKeyword)) {
       return false
     }
   }
