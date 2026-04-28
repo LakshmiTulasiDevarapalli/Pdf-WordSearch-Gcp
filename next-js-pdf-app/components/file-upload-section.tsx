@@ -59,6 +59,7 @@ const DEFAULT_KEYWORDS = [
   "APS",
   "POLICE",
   "CHOKE",
+  "PUNCH",
   // "ERROR",
   // "CODE",
   // "CHANGE",
