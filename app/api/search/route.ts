@@ -173,6 +173,9 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
             paragraphLower.includes("no complaints and concerns") ||
             paragraphLower.includes("no questions or concerns") ||
             paragraphLower.includes("if any urgent podiatric concerns") ||
+            paragraphLower.includes("denies new concerns") ||
+            paragraphLower.includes("bring forward questions or concerns") ||
+            paragraphLower.includes("the resident denies depressive symptoms, anxiety exacerbation, hallucinations, delusions, suicidal ideation, homicidal ideation, or concerns related to abuse or neglect") ||
             /\bno\s+concern\b/i.test(paragraphLower) ||
             /\bno\s+behavioral\s+concerns?\b/i.test(paragraphLower)
           ) {
@@ -221,7 +224,9 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
             /including\s+absence\s+of\s+redness,?\s+swelling/i.test(block.paragraphText) ||
             /no\s+signs\s+of\s+infiltration\s+redness,?\s+swelling/i.test(block.paragraphText) ||
             /localized\s+swelling/i.test(block.paragraphText) ||
-            /leg\s+swelling\s+and\s+cerebral\s+edema/i.test(block.paragraphText)
+            /leg\s+swelling\s+and\s+cerebral\s+edema/i.test(block.paragraphText) ||
+            /abdominal\s+and\s+pelvic\s+swelling/i.test(block.paragraphText) ||
+            /left\s+groin\s+swelling\s+subsiding/i.test(block.paragraphText)
           ) {
             continue
           }
@@ -329,6 +334,26 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
         if (keywordLower === "sex") {
           if (
             /adult\s+physical\s+and\s+sexual\s+abuse/i.test(block.paragraphText)
+          ) {
+            continue
+          }
+        }
+
+        // --- Paragraph-level exclusion for the ABUSE keyword ---
+        // Skip paragraphs containing the routine "resident denies" template phrase.
+        if (keywordLower === "abuse") {
+          if (
+            /the\s+resident\s+denies\s+depressive\s+symptoms.*concerns\s+related\s+to\s+abuse\s+or\s+neglect/i.test(block.paragraphText)
+          ) {
+            continue
+          }
+        }
+
+        // --- Paragraph-level exclusion for the SUICIDE keyword ---
+        // Skip paragraphs containing the routine "resident denies" template phrase.
+        if (keywordLower === "suicide") {
+          if (
+            /the\s+resident\s+denies\s+depressive\s+symptoms.*suicidal\s+ideation/i.test(block.paragraphText)
           ) {
             continue
           }
@@ -979,8 +1004,13 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
   // --- Special validation for the 15 MIN keyword ---
   // "15 min", "15 mins", "15 minutes" etc. should match, but "Physician spent 15 mins" should NOT.
   if (keywordLower === "15 min") {
-    const textBeforeMatch = text.substring(Math.max(0, matchIndex - 25), matchIndex)
-    if (/physician\s+spent\s+$/i.test(textBeforeMatch)) {
+    const textBeforeMatch = text.substring(Math.max(0, matchIndex - 40), matchIndex)
+    // Exclude "Physician spent more than 15 mins"
+    if (/physician\s+spent\s+(?:more\s+than\s+|greater\s+than\s+)?$/i.test(textBeforeMatch)) {
+      return false
+    }
+    // Explicit check for "greater than" variant
+    if (/greater\s+than\s+$/i.test(textBeforeMatch)) {
       return false
     }
   }
@@ -1047,7 +1077,12 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
   // but "Aggressive Behavior: Wandering" (a care-plan label) should NOT.
   if (keywordLower === "wander") {
     const textBeforeMatch = text.substring(Math.max(0, matchIndex - 30), matchIndex)
+    const afterKeyword = text.substring(matchIndex + keyword.length, matchIndex + keyword.length + 30)
     if (/aggressive\s+behavior:\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+    // Exclude "WANDERING IN DISEASES" — "wander" followed by "ing in diseases"
+    if (/^ing\s+in\s+diseases/i.test(afterKeyword)) {
       return false
     }
   }
@@ -1083,6 +1118,10 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     }
     // Exclude "911 NON-PRESSURE" — "non-pressure" after "911"
     if (/^\s+non-pressure/i.test(afterKeyword)) {
+      return false
+    }
+    // Exclude "911 UNSPECIFIED DEMENTIA" — "unspecified dementia" after "911"
+    if (/^\s+unspecified\s+dementia/i.test(afterKeyword)) {
       return false
     }
   }
