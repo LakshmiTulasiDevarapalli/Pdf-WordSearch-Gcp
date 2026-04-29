@@ -1114,6 +1114,10 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     if (/c50\.\s*$/i.test(textBeforeMatch)) {
       return false
     }
+    // Exclude "F03.911" — "F03." before "911"
+    if (/f03\.\s*$/i.test(textBeforeMatch)) {
+      return false
+    }
     // Exclude "Call 911 when used" — "when used" after "911"
     if (/^\s+when\s+used/i.test(afterKeyword)) {
       return false
