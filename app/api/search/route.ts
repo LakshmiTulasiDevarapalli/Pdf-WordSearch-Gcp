@@ -176,6 +176,7 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
             paragraphLower.includes("denies new concerns") ||
             paragraphLower.includes("bring forward questions or concerns") ||
             paragraphLower.includes("the resident denies depressive symptoms, anxiety exacerbation, hallucinations, delusions, suicidal ideation, homicidal ideation, or concerns related to abuse or neglect") ||
+            paragraphLower.includes("including memory concerns") ||
             /\bno\s+concern\b/i.test(paragraphLower) ||
             /\bno\s+behavioral\s+concerns?\b/i.test(paragraphLower)
           ) {
@@ -1100,7 +1101,8 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
   // --- Special validation for the 911 keyword ---
   // "911" should match genuine emergency call references,
   // but "G40.911 EPILEPSY" (a diagnosis code), "C50.911" (a breast cancer diagnosis code),
-  // "Call 911 when used" (a device label), and "911 NON-PRESSURE" (a wound classification code) should NOT.
+  // "Call 911 when used" (a device label), "911 NON-PRESSURE" (a wound classification code),
+  // and any occurrence of "911" inside parentheses e.g. (911), (9110) should NOT.
   if (keywordLower === "911") {
     const afterKeyword = text.substring(matchIndex + keyword.length, matchIndex + keyword.length + 20)
     const textBeforeMatch = text.substring(Math.max(0, matchIndex - 10), matchIndex)
@@ -1122,6 +1124,33 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     }
     // Exclude "911 UNSPECIFIED DEMENTIA" — "unspecified dementia" after "911"
     if (/^\s+unspecified\s+dementia/i.test(afterKeyword)) {
+      return false
+    }
+    // Exclude "9114" — digit immediately after "911"
+    if (/^4/.test(afterKeyword)) {
+      return false
+    }
+    // Exclude any "911" that appears inside parentheses e.g. (911), (9110), (911A) etc.
+    // Check if "(" appears before and ")" appears after the match (with possible extra chars in between)
+    if (/\(\s*$/.test(textBeforeMatch) || /\(\d*$/.test(textBeforeMatch)) {
+      return false
+    }
+    if (/^[\d\w]*\s*\)/.test(afterKeyword)) {
+      // Only exclude if there was an opening paren before this match
+      const widerBefore = text.substring(Math.max(0, matchIndex - 20), matchIndex)
+      if (/\([\d\w]*$/.test(widerBefore)) {
+        return false
+      }
+    }
+  }
+
+  // --- Special validation for the ALLEG keyword ---
+  // "alleg", "allegation", "alleged" etc. should match,
+  // but "Allegra Allergy" (a medication/allergy label) should NOT.
+  if (keywordLower === "alleg") {
+    const afterKeyword = text.substring(matchIndex + keyword.length, matchIndex + keyword.length + 20)
+    // Exclude "Allegra Allergy" — "ra allergy" after "alleg"
+    if (/^ra\s+allergy/i.test(afterKeyword)) {
       return false
     }
   }
