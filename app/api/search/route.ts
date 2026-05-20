@@ -1148,6 +1148,17 @@ function isValidKeywordMatch(text: string, keyword: string, matchIndex: number):
     }
   }
 
+  // --- Special validation for the CIGARETTE keyword ---
+  // "cigarette", "cigarettes" etc. should match,
+  // but "NICOTINE DEPENDENCE, CIGARETTES" (a diagnosis label) should NOT.
+  if (keywordLower === "cigarette") {
+    const textBeforeMatch = text.substring(Math.max(0, matchIndex - 30), matchIndex)
+    // Exclude "NICOTINE DEPENDENCE, CIGARETTES" — "nicotine dependence," before "cigarette"
+    if (/nicotine\s+dependence,?\s+$/i.test(textBeforeMatch)) {
+      return false
+    }
+  }
+
   // --- Special validation for the ALLEG keyword ---
   // "alleg", "allegation", "alleged" etc. should match,
   // but "Allegra Allergy" (a medication/allergy label) should NOT.
