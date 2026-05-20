@@ -62,7 +62,7 @@ const DEFAULT_KEYWORDS = [
   "PUNCH",
   "CIGARETTE",
   "LIGHTER",
-  "SECURITY"
+  "SECURITY",
   // "ERROR",
   // "CODE",
   // "CHANGE",
