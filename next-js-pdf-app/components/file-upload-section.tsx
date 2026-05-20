@@ -60,6 +60,9 @@ const DEFAULT_KEYWORDS = [
   "POLICE",
   "CHOKE",
   "PUNCH",
+  "CIGARETTE",
+  "LIGHTER",
+  "SECURITY"
   // "ERROR",
   // "CODE",
   // "CHANGE",
