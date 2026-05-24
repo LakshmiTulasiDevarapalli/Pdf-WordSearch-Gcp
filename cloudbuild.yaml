@@ -96,10 +96,10 @@ availableSecrets:
 
 substitutions:
   _AR_HOSTNAME: 'us-east4-docker.pkg.dev'
-  _AR_PROJECT_ID: 'YOUR_GCP_PROJECT_ID'
+  _AR_PROJECT_ID: 'project-ab8fddd6-dc50-458a-a4e'
   _AR_REPOSITORY: 'cloud-run-source-deploy'
   _DEPLOY_REGION: 'us-east4'
-  _SUPABASE_URL: 'YOUR_SUPABASE_URL'
+  _SUPABASE_URL: 'https://nqbrbsjlqwwelbqiwkab.supabase.co'
 
 options:
   logging: CLOUD_LOGGING_ONLY
