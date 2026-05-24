@@ -146,6 +146,7 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
             paragraphLower.includes("no new concerns") ||
             paragraphLower.includes("the nurse did not voice any concerns") ||
             paragraphLower.includes("notify wound team of any concerns") ||
+            paragraphLower.includes("inform the wound team of any concerns or changes") ||
             paragraphLower.includes("no further concern") ||
             paragraphLower.includes("any conditions or concerns requiring referral to rehab?") ||
             paragraphLower.includes("no additional concerns noted") ||
@@ -290,7 +291,8 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
         if (keywordLower === "hurt") {
           if (
             /better\s+off\s+dead,?\s+or\s+of\s+hurting/i.test(block.paragraphText) ||
-            /carlos\s+hurt/i.test(block.paragraphText)
+            /carlos\s+hurt/i.test(block.paragraphText) ||
+            /hurt,\s*carita/i.test(block.paragraphText)
           ) {
             continue
           }
@@ -365,7 +367,8 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
         if (keywordLower === "ombudsman") {
           if (
             /6-108\s+sent\s+to\s+ombudsman/i.test(block.paragraphText) ||
-            /sent\s+to\s+the\s+ombudsman/i.test(block.paragraphText)
+            /sent\s+to\s+the\s+ombudsman/i.test(block.paragraphText) ||
+            /6-108\s+email\s+to\s+the\s+ombudsman/i.test(block.paragraphText)
           ) {
             continue
           }
