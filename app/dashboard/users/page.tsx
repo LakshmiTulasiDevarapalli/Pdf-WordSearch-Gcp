@@ -1,5 +1,5 @@
 "use client"
-
+import React from "react"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -91,8 +91,8 @@ export default function UsersPage() {
   return (
     <div className="min-h-screen relative overflow-hidden" style={{ fontFamily: "'DM Sans', sans-serif", background: "#ffffff" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600&display=swap');
-        .royal-title { font-family: 'Playfair Display', serif; }
+        @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500;600;700&display=swap');
+        .royal-title { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; }
         .royal-gradient-text { background: linear-gradient(135deg, #1a2e6e 0%, #4c1d95 60%, #1a2e6e 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
         .header-bar { border-bottom: 1px solid rgba(201,168,76,0.2); background: rgba(255,255,255,0.92); backdrop-filter: blur(20px); }
         .royal-card { background: #fff; border: 1px solid rgba(201,168,76,0.3); border-radius: 16px; box-shadow: 0 4px 24px rgba(26,46,110,0.07); }
@@ -111,7 +111,7 @@ export default function UsersPage() {
         .select-input { background: #f8f7ff; border: 1px solid rgba(201,168,76,0.35); border-radius: 0.6rem; padding: 0.5rem 0.75rem; color: #1f2937; font-size: 0.875rem; outline: none; cursor: pointer; transition: border-color 0.2s; }
         .select-input:focus { border-color: #4c1d95; }
         .pagination-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; padding: 0.875rem 1.5rem; border-top: 1px solid rgba(201,168,76,0.15); }
-        .page-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 2rem; height: 2rem; padding: 0 0.4rem; border-radius: 0.5rem; border: 1px solid rgba(201,168,76,0.3); background: #f8f7ff; color: #374151; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: all 0.15s; font-family: 'DM Sans', sans-serif; }
+        .page-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 2rem; height: 2rem; padding: 0 0.4rem; border-radius: 0.5rem; border: 1px solid rgba(201,168,76,0.3); background: #f8f7ff; color: #374151; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: all 0.15s; font-family: 'DM Sans', sans-serif; font-size: 13px; }
         .page-btn:hover:not(:disabled):not(.active) { border-color: #4c1d95; color: #4c1d95; background: rgba(76,29,149,0.05); }
         .page-btn.active { background: linear-gradient(135deg, #1a2e6e, #4c1d95); color: #fff; border-color: transparent; box-shadow: 0 2px 8px rgba(26,46,110,0.25); }
         .page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
@@ -122,12 +122,12 @@ export default function UsersPage() {
       <header className="header-bar sticky top-0 z-20">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
           <Link href="/dashboard" className="flex items-center gap-3">
-            <div className="p-2 rounded-xl" style={{ background: "linear-gradient(135deg, #1a2e6e, #4c1d95)", boxShadow: "0 4px 14px rgba(26,46,110,0.3)" }}>
-              <FileSearch className="size-5 text-yellow-300" />
+            <div style={{ padding:"8px", borderRadius:"12px", background:"linear-gradient(135deg,#1a2e6e,#4c1d95)", boxShadow:"0 3px 12px rgba(26,46,110,0.28)" }}>
+              <FileSearch style={{ width:"17px", height:"17px", color:"#fbbf24" }}/>
             </div>
             <div className="flex flex-col">
-              <span className="royal-title text-lg font-black tracking-wide royal-gradient-text">PDF Search</span>
-              <span className="text-[10px] tracking-widest uppercase hidden md:block" style={{ color: "#92400e", letterSpacing: "0.18em" }}>Document Analysis Tool</span>
+              <span style={{ fontFamily:"'Instrument Serif',Georgia,serif", fontSize:"19px", background:"linear-gradient(135deg,#1a2e6e,#4c1d95)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", lineHeight:"1.1" }}>AICS</span>
+              <span style={{ fontSize:"8.5px", fontWeight:700, letterSpacing:"0.2em", color:"#92400e", textTransform:"uppercase" }}>PDF Search Engine</span>
             </div>
           </Link>
           <Link href="/dashboard" className="btn-royal flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold">
@@ -140,8 +140,8 @@ export default function UsersPage() {
         {/* Page Header */}
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="royal-title text-2xl font-black royal-gradient-text">User Management</h1>
-            <p className="text-sm mt-1" style={{ color: "#6b7280" }}>Add, edit, and manage users stored in Supabase</p>
+            <h1 style={{ fontFamily:"'Instrument Serif',Georgia,serif", fontSize:"28px", fontWeight:400, background:"linear-gradient(135deg,#1a2e6e,#4c1d95)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>User Management</h1>
+            <p style={{ fontSize:"13px", color:"#9ca3af", marginTop:"3px", fontFamily:"'DM Sans',sans-serif" }}>Add, edit, and manage users stored in Supabase</p>
           </div>
           <button className="btn-primary flex items-center gap-2" onClick={() => { setShowAddModal(true); setError(""); setSuccess("") }}>
             <Plus className="size-4" /> Add User
@@ -220,9 +220,8 @@ export default function UsersPage() {
                   </thead>
                   <tbody>
                     {paginated.map((u, i) => (
-                      <>
+                      <React.Fragment key={u.id}>
                         <tr
-                          key={u.id}
                           style={{
                             borderBottom: deleteConfirmId === u.id ? "none" : (i < paginated.length - 1 ? "1px solid #f9fafb" : "none"),
                             background: deleteConfirmId === u.id ? "rgba(239,68,68,0.03)" : "transparent",
@@ -292,7 +291,7 @@ export default function UsersPage() {
                             </div>
                           </td>
                         </tr>
-                      </>
+                      </React.Fragment>
                     ))}
                   </tbody>
                 </table>

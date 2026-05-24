@@ -1,670 +1,536 @@
 "use client"
 
 import Link from "next/link"
-import { FileSearch, Search, Shield, Clock, X, Mail, Phone } from "lucide-react"
+import { FileSearch, Search, Shield, Clock, X, Mail, Phone, Zap, FileText, Download, ChevronRight, ArrowRight } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
 function ParticleCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext("2d")
     if (!ctx) return
-
     let animationId: number
-    const PARTICLE_COUNT = 80
-
-    const resize = () => {
-      canvas.width = window.innerWidth
-      canvas.height = window.innerHeight
-    }
+    const PARTICLE_COUNT = 60
+    const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight }
     resize()
     window.addEventListener("resize", resize)
-
     class Particle {
-      x: number; y: number; vx: number; vy: number
-      radius: number; opacity: number; color: string
-
+      x: number; y: number; vx: number; vy: number; radius: number; opacity: number; color: string
       constructor() {
-        this.x = Math.random() * canvas!.width
-        this.y = Math.random() * canvas!.height
-        this.vx = (Math.random() - 0.5) * 0.3
-        this.vy = (Math.random() - 0.5) * 0.3
-        this.radius = Math.random() * 2 + 0.5
-        this.opacity = Math.random() * 0.3 + 0.08
-        const colors = ["#c9a84c", "#1a2e6e", "#6b21a8", "#b8860b", "#4c1d95", "#1e3a8a"]
-        this.color = colors[Math.floor(Math.random() * colors.length)]
+        this.x = Math.random() * canvas!.width; this.y = Math.random() * canvas!.height
+        this.vx = (Math.random() - 0.5) * 0.25; this.vy = (Math.random() - 0.5) * 0.25
+        this.radius = Math.random() * 1.5 + 0.5; this.opacity = Math.random() * 0.25 + 0.05
+        this.color = ["#c9a84c","#1a2e6e","#6b21a8","#b8860b","#4c1d95"][Math.floor(Math.random()*5)]
       }
-
       update() {
         this.x += this.vx; this.y += this.vy
-        if (this.x < 0) this.x = canvas!.width
-        if (this.x > canvas!.width) this.x = 0
-        if (this.y < 0) this.y = canvas!.height
-        if (this.y > canvas!.height) this.y = 0
+        if (this.x < 0) this.x = canvas!.width; if (this.x > canvas!.width) this.x = 0
+        if (this.y < 0) this.y = canvas!.height; if (this.y > canvas!.height) this.y = 0
       }
-
       draw() {
-        ctx!.save()
-        ctx!.globalAlpha = this.opacity
-        ctx!.fillStyle = this.color
-        ctx!.shadowBlur = 8
-        ctx!.shadowColor = this.color
-        ctx!.beginPath()
-        ctx!.arc(this.x, this.y, this.radius, 0, Math.PI * 2)
-        ctx!.fill()
-        ctx!.restore()
+        ctx!.save(); ctx!.globalAlpha = this.opacity; ctx!.fillStyle = this.color
+        ctx!.shadowBlur = 6; ctx!.shadowColor = this.color
+        ctx!.beginPath(); ctx!.arc(this.x, this.y, this.radius, 0, Math.PI*2); ctx!.fill(); ctx!.restore()
       }
     }
-
-    const particles: Particle[] = Array.from({ length: PARTICLE_COUNT }, () => new Particle())
-
-    let patternOffset = 0
-    const drawOrnatePattern = () => {
-      patternOffset += 0.0005
-      const spacing = 60
-      ctx.save()
-      for (let x = 0; x < canvas.width + spacing; x += spacing) {
-        for (let y = 0; y < canvas.height + spacing; y += spacing) {
-          const wave = Math.sin(patternOffset + x * 0.01 + y * 0.01) * 0.5 + 0.5
-          ctx.globalAlpha = 0.025 + wave * 0.025
-          ctx.fillStyle = "#c9a84c"
-          ctx.save()
-          ctx.translate(x, y)
-          ctx.rotate(Math.PI / 4)
-          ctx.fillRect(-3, -3, 6, 6)
-          ctx.restore()
-        }
-      }
-      ctx.restore()
-    }
-
-    let bloomOffset = 0
-    const drawBlooms = () => {
-      bloomOffset += 0.002
-      const g1 = ctx.createRadialGradient(canvas.width * 0.08, canvas.height * 0.05, 0, canvas.width * 0.08, canvas.height * 0.05, canvas.width * 0.4)
-      g1.addColorStop(0, `hsla(43, 74%, 60%, ${0.07 + Math.sin(bloomOffset) * 0.02})`)
-      g1.addColorStop(1, "transparent")
-      ctx.fillStyle = g1
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-      const g2 = ctx.createRadialGradient(canvas.width * 0.92, canvas.height * 0.08, 0, canvas.width * 0.92, canvas.height * 0.08, canvas.width * 0.35)
-      g2.addColorStop(0, `hsla(270, 80%, 50%, ${0.06 + Math.cos(bloomOffset * 1.2) * 0.02})`)
-      g2.addColorStop(1, "transparent")
-      ctx.fillStyle = g2
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-      const g3 = ctx.createRadialGradient(canvas.width * 0.5, canvas.height, 0, canvas.width * 0.5, canvas.height, canvas.width * 0.45)
-      g3.addColorStop(0, `hsla(225, 70%, 35%, ${0.05 + Math.sin(bloomOffset * 0.8) * 0.02})`)
-      g3.addColorStop(1, "transparent")
-      ctx.fillStyle = g3
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
-    }
-
-    const drawConnections = (parts: Particle[]) => {
-      const maxDist = 110
-      for (let i = 0; i < parts.length; i++) {
-        for (let j = i + 1; j < parts.length; j++) {
-          const dx = parts[i].x - parts[j].x
-          const dy = parts[i].y - parts[j].y
-          const dist = Math.sqrt(dx * dx + dy * dy)
-          if (dist < maxDist) {
-            ctx.save()
-            ctx.globalAlpha = (1 - dist / maxDist) * 0.1
-            ctx.strokeStyle = "#c9a84c"
-            ctx.lineWidth = 0.5
-            ctx.beginPath()
-            ctx.moveTo(parts[i].x, parts[i].y)
-            ctx.lineTo(parts[j].x, parts[j].y)
-            ctx.stroke()
-            ctx.restore()
-          }
-        }
-      }
-    }
-
+    const particles = Array.from({ length: PARTICLE_COUNT }, () => new Particle())
     const render = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
-      ctx.fillStyle = "#ffffff"
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
-      drawOrnatePattern()
-      drawBlooms()
-      particles.forEach(p => p.update())
-      drawConnections(particles)
-      particles.forEach(p => p.draw())
+      ctx.clearRect(0,0,canvas.width,canvas.height)
+      // subtle gradient background
+      const bg = ctx.createLinearGradient(0,0,canvas.width,canvas.height)
+      bg.addColorStop(0,"#f8f6ff"); bg.addColorStop(0.5,"#fefcf3"); bg.addColorStop(1,"#f0f4ff")
+      ctx.fillStyle = bg; ctx.fillRect(0,0,canvas.width,canvas.height)
+      // connections
+      for (let i=0;i<particles.length;i++) for (let j=i+1;j<particles.length;j++) {
+        const dx=particles[i].x-particles[j].x, dy=particles[i].y-particles[j].y
+        const dist=Math.sqrt(dx*dx+dy*dy)
+        if (dist<100) { ctx.save(); ctx.globalAlpha=(1-dist/100)*0.06; ctx.strokeStyle="#c9a84c"; ctx.lineWidth=0.5; ctx.beginPath(); ctx.moveTo(particles[i].x,particles[i].y); ctx.lineTo(particles[j].x,particles[j].y); ctx.stroke(); ctx.restore() }
+      }
+      particles.forEach(p=>{p.update();p.draw()})
       animationId = requestAnimationFrame(render)
     }
-
     render()
-
-    return () => {
-      cancelAnimationFrame(animationId)
-      window.removeEventListener("resize", resize)
-    }
+    return () => { cancelAnimationFrame(animationId); window.removeEventListener("resize",resize) }
   }, [])
-
   return <canvas ref={canvasRef} className="fixed inset-0 w-full h-full" style={{ zIndex: -1 }} />
 }
 
-// ─── Modal Shell ──────────────────────────────────────────────────────────────
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose()
     window.addEventListener("keydown", onKey)
     document.body.style.overflow = "hidden"
-    return () => {
-      window.removeEventListener("keydown", onKey)
-      document.body.style.overflow = ""
-    }
+    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = "" }
   }, [onClose])
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(10,14,40,0.55)", backdropFilter: "blur(6px)" }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div
-        className="relative w-full max-w-2xl max-h-[88vh] flex flex-col rounded-2xl overflow-hidden"
-        style={{
-          background: "#fff",
-          boxShadow: "0 32px 80px rgba(26,46,110,0.22), 0 0 0 1px rgba(201,168,76,0.25)",
-        }}
-      >
-        {/* Top accent bar */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(10,14,40,0.6)", backdropFilter: "blur(8px)" }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="relative w-full max-w-2xl max-h-[88vh] flex flex-col rounded-3xl overflow-hidden"
+        style={{ background: "#fff", boxShadow: "0 40px 100px rgba(26,46,110,0.25), 0 0 0 1px rgba(201,168,76,0.2)" }}>
         <div className="h-1 w-full flex-shrink-0" style={{ background: "linear-gradient(90deg, #1a2e6e, #c9a84c, #f5d06e, #c9a84c, #4c1d95)" }} />
-
-        {/* Header */}
-        <div className="flex items-center justify-between px-8 py-5 flex-shrink-0" style={{ borderBottom: "1px solid rgba(201,168,76,0.2)" }}>
+        <div className="flex items-center justify-between px-8 py-5 flex-shrink-0" style={{ borderBottom: "1px solid rgba(201,168,76,0.15)" }}>
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg" style={{ background: "linear-gradient(135deg, #1a2e6e, #4c1d95)" }}>
+            <div className="p-2 rounded-xl" style={{ background: "linear-gradient(135deg, #1a2e6e, #4c1d95)" }}>
               <FileSearch className="size-4 text-yellow-300" />
             </div>
             <div>
-              <p className="text-xs tracking-widest uppercase font-semibold" style={{ color: "#92400e", fontSize: "10px", letterSpacing: "0.18em" }}>AICS PDF Search Engine</p>
-              <h2 className="royal-title text-xl font-black royal-gradient-text">{title}</h2>
+              <p className="text-xs font-bold tracking-widest uppercase" style={{ color: "#92400e", fontSize:"9px", letterSpacing:"0.2em" }}>AICS PDF Search</p>
+              <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:"20px", fontWeight:900, background:"linear-gradient(135deg,#1a2e6e,#4c1d95)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>{title}</h2>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-xl transition-all hover:scale-110"
-            style={{ background: "rgba(26,46,110,0.07)", color: "#1a2e6e" }}
-          >
+          <button onClick={onClose} className="p-2 rounded-xl transition-all hover:scale-110" style={{ background:"rgba(26,46,110,0.07)", color:"#1a2e6e" }}>
             <X className="size-5" />
           </button>
         </div>
+        <div className="overflow-y-auto px-8 py-6 flex-1" style={{ color:"#374151" }}>{children}</div>
+      </div>
+    </div>
+  )
+}
 
-        {/* Scrollable body */}
-        <div className="overflow-y-auto px-8 py-6 flex-1" style={{ color: "#374151" }}>
-          {children}
+function PrivacyContent() {
+  const S = ({ title, children }: { title: string; children: React.ReactNode }) => (
+    <div className="mb-7">
+      <h3 style={{ fontFamily:"'Playfair Display',serif", fontWeight:700, fontSize:"15px", color:"#1a2e6e", marginBottom:"8px" }}>{title}</h3>
+      <div className="text-sm leading-relaxed space-y-2" style={{ color:"#4b5563" }}>{children}</div>
+    </div>
+  )
+  return (
+    <div>
+      <p className="text-sm mb-5 leading-relaxed" style={{ color:"#6b7280" }}><strong style={{ color:"#1a2e6e" }}>Effective: Jan 1, 2026 · Updated: Mar 1, 2026</strong><br/>Your privacy is the foundation of everything we build.</p>
+      <div className="mb-5 h-px" style={{ background:"linear-gradient(90deg,transparent,#c9a84c,transparent)" }} />
+      <S title="1. Information We Collect"><p><strong>Account data:</strong> Name, email, and encrypted password on registration.</p><p><strong>Documents:</strong> PDFs are processed in-memory. We do not store document contents beyond the active session.</p><p><strong>Usage data:</strong> Anonymised analytics only — cannot be linked to individuals.</p></S>
+      <S title="2. How We Use Your Information"><p>We use data solely to operate and improve AICS. We never sell or trade your personal information.</p></S>
+      <S title="3. Document Security"><p>All uploads are encrypted in transit via TLS 1.3. Files are purged within 60 minutes of session end.</p></S>
+      <S title="4. Your Rights"><p>Under GDPR/CCPA you may access, correct, export, or delete your data. Email <strong style={{color:"#1a2e6e"}}>privacy@aics.ai</strong>. We respond within 30 days.</p></S>
+    </div>
+  )
+}
+
+function TermsContent() {
+  const S = ({ title, children }: { title: string; children: React.ReactNode }) => (
+    <div className="mb-7">
+      <h3 style={{ fontFamily:"'Playfair Display',serif", fontWeight:700, fontSize:"15px", color:"#1a2e6e", marginBottom:"8px" }}>{title}</h3>
+      <div className="text-sm leading-relaxed space-y-2" style={{ color:"#4b5563" }}>{children}</div>
+    </div>
+  )
+  return (
+    <div>
+      <p className="text-sm mb-5" style={{ color:"#6b7280" }}><strong style={{ color:"#1a2e6e" }}>Effective: January 1, 2026</strong><br/>Please read carefully before using AICS.</p>
+      <div className="mb-5 h-px" style={{ background:"linear-gradient(90deg,transparent,#c9a84c,transparent)" }} />
+      <S title="1. Acceptance"><p>By using AICS you confirm you are 16+ and have authority to enter this agreement.</p></S>
+      <S title="2. Permitted Use"><p>You may not reverse-engineer our algorithms, upload IP-violating documents, or resell access without written approval.</p></S>
+      <S title="3. Intellectual Property"><p>You retain ownership of uploaded documents. AICS retains all platform IP.</p></S>
+      <S title="4. Liability"><p>AICS liability is limited to fees paid in the prior 12 months. We are not liable for indirect or consequential damages.</p></S>
+      <p className="text-xs mt-4" style={{ color:"#9ca3af" }}>Legal: <strong>legal@aics.ai</strong></p>
+    </div>
+  )
+}
+
+function ContactContent() {
+  return (
+    <div>
+      <p className="text-sm mb-5" style={{ color:"#6b7280" }}>Have a question or need support? We're here to help.</p>
+      <div className="mb-5 h-px" style={{ background:"linear-gradient(90deg,transparent,#c9a84c,transparent)" }} />
+      <div className="grid grid-cols-2 gap-4">
+        {[
+          { icon: <Mail className="size-5" />, label: "Email", value: "hello@aics.ai", sub: "Reply within 4 business hours" },
+          { icon: <Phone className="size-5" />, label: "Phone", value: "+1 (800) 247-2427", sub: "Mon–Fri, 9 AM – 6 PM EST" },
+        ].map(c => (
+          <div key={c.label} className="rounded-2xl p-5" style={{ background:"#f8f7ff", border:"1px solid rgba(201,168,76,0.25)" }}>
+            <div className="flex items-center justify-center w-10 h-10 rounded-xl mb-3" style={{ background:"linear-gradient(135deg,#1a2e6e,#4c1d95)" }}>
+              <span style={{ color:"#fbbf24" }}>{c.icon}</span>
+            </div>
+            <p className="text-xs font-bold tracking-widest uppercase mb-1" style={{ color:"#92400e" }}>{c.label}</p>
+            <p className="font-semibold mb-1" style={{ color:"#1a2e6e", fontSize:"15px" }}>{c.value}</p>
+            <p className="text-xs" style={{ color:"#9ca3af" }}>{c.sub}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function FeaturesContent() {
+  const features = [
+    { emoji:"📤", title:"Large File Support", desc:"Upload PDFs up to 5TB in size. No matter how large or complex your document, our engine handles it efficiently without any server-side storage.", accent:"#1a2e6e" },
+    { emoji:"🔍", title:"Smart Keyword Search", desc:"50+ compliance keywords are automatically matched across every page. Results show the full paragraph with context, resident name, location, and page number.", accent:"#4c1d95" },
+    { emoji:"🧠", title:"In-Memory Processing", desc:"Your PDF is parsed entirely in your browser using PDF.js. No file is ever uploaded to any server — data lives only in your session memory and is gone when you close the tab.", accent:"#0f766e" },
+    { emoji:"🔒", title:"Zero Data Retention", desc:"Because everything is processed in-memory, there is nothing to delete. No blob storage, no cleanup jobs, no privacy risk. Your documents never touch our servers.", accent:"#7c3aed" },
+    { emoji:"📄", title:"Export to Word", desc:"Generate a professional .docx report with all extracted paragraphs, keyword highlights, resident details, and page references — ready to share with your compliance team.", accent:"#b8860b" },
+    { emoji:"⚡", title:"Instant Results", desc:"Search completes in under a second regardless of PDF size. The entire pipeline — parse, match, extract — runs client-side with no upload delays or server queues.", accent:"#dc2626" },
+  ]
+  const stats = [
+    { num:"50+", label:"Keywords tracked" },
+    { num:"5TB",  label:"Max file size" },
+    { num:"100%", label:"In-memory" },
+    { num:"<1s",  label:"Search speed" },
+  ]
+  const steps = [
+    { num:"01", title:"Upload PDF", desc:"Drop any PDF. Parsed instantly in your browser — nothing leaves your device." },
+    { num:"02", title:"Auto-search", desc:"All 50+ keywords matched across every page with full paragraph context." },
+    { num:"03", title:"Export .docx", desc:"Download a polished Word report with findings, names, and page refs." },
+  ]
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:"28px" }}>
+      <div>
+        <p style={{ fontSize:"13px", color:"#6b7280", marginBottom:"16px", lineHeight:1.6 }}>Everything you need to work with compliance documents — faster, safer, and without storing a single file.</p>
+        <div style={{ height:"1px", background:"linear-gradient(90deg,transparent,#c9a84c,transparent)", marginBottom:"20px" }} />
+
+        {/* Stats row */}
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"10px", marginBottom:"24px" }}>
+          {stats.map(({ num, label }) => (
+            <div key={label} style={{ textAlign:"center", padding:"14px 8px", borderRadius:"12px", background:"rgba(26,46,110,0.04)", border:"1px solid rgba(201,168,76,0.2)" }}>
+              <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"26px", fontWeight:900, background:"linear-gradient(135deg,#1a2e6e,#4c1d95)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", lineHeight:1 }}>{num}</div>
+              <div style={{ fontSize:"10px", fontWeight:600, color:"#6b7280", marginTop:"4px", letterSpacing:"0.03em" }}>{label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Feature cards */}
+        <div style={{ display:"flex", flexDirection:"column", gap:"10px" }}>
+          {features.map(({ emoji, title, desc, accent }) => (
+            <div key={title} style={{ display:"flex", gap:"14px", alignItems:"flex-start", padding:"16px", borderRadius:"14px", background:"rgba(255,255,255,0.95)", border:`1px solid ${accent}18`, boxShadow:"0 2px 12px rgba(26,46,110,0.05)" }}>
+              <div style={{ flexShrink:0, width:"40px", height:"40px", display:"flex", alignItems:"center", justifyContent:"center", borderRadius:"10px", background:`${accent}10`, border:`1px solid ${accent}18`, fontSize:"18px" }}>{emoji}</div>
+              <div>
+                <div style={{ height:"2px", width:"20px", borderRadius:"2px", marginBottom:"6px", background:`linear-gradient(90deg,${accent},#c9a84c)` }} />
+                <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"14px", fontWeight:700, color:"#111827", marginBottom:"4px" }}>{title}</div>
+                <div style={{ fontSize:"12px", color:"#6b7280", lineHeight:1.65 }}>{desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* How It Works */}
+      <div>
+        <div style={{ height:"1px", background:"linear-gradient(90deg,transparent,#c9a84c,transparent)", marginBottom:"20px" }} />
+        <div style={{ fontSize:"10px", fontWeight:700, letterSpacing:"0.16em", color:"#92400e", textTransform:"uppercase", marginBottom:"12px" }}>How It Works</div>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"10px" }}>
+          {steps.map(({ num, title, desc }) => (
+            <div key={num} style={{ padding:"16px", borderRadius:"14px", background:"rgba(255,255,255,0.95)", border:"1px solid rgba(201,168,76,0.18)", position:"relative", overflow:"hidden" }}>
+              <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"52px", fontWeight:900, color:"rgba(26,46,110,0.04)", position:"absolute", top:"-6px", right:"8px", lineHeight:1, pointerEvents:"none" }}>{num}</div>
+              <div style={{ fontSize:"10px", fontWeight:700, color:"#c9a84c", letterSpacing:"0.1em", marginBottom:"6px" }}>{num}</div>
+              <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"14px", color:"#111827", marginBottom:"5px" }}>{title}</div>
+              <div style={{ fontSize:"12px", color:"#6b7280", lineHeight:1.6 }}>{desc}</div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
   )
 }
 
-// ─── Privacy Page ─────────────────────────────────────────────────────────────
-function PrivacyContent() {
-  const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
-    <div className="mb-7">
-      <h3 className="royal-title font-bold text-base mb-2" style={{ color: "#1a2e6e" }}>{title}</h3>
-      <div className="text-sm leading-relaxed space-y-2" style={{ color: "#4b5563" }}>{children}</div>
-    </div>
-  )
-  return (
-    <div>
-      <p className="text-sm mb-6 leading-relaxed" style={{ color: "#6b7280" }}>
-        <strong style={{ color: "#1a2e6e" }}>Effective Date: January 1, 2026 · Last Updated: March 1, 2026</strong>
-        <br />
-        At AICS, your privacy is not an afterthought — it is the foundation of everything we build. This policy explains how we collect, use, and protect your data.
-      </p>
-
-      <hr className="gold-divider mb-6" />
-
-      <Section title="1. Information We Collect">
-        <p><strong>Account data:</strong> When you register, we collect your name, email address, and encrypted password.</p>
-        <p><strong>Documents you upload:</strong> PDF files are processed entirely in-memory for search and analysis. We do not store your document contents on our servers beyond the active session unless you explicitly enable cloud sync.</p>
-        <p><strong>Usage data:</strong> We collect anonymised analytics (page visits, feature usage) to improve the product. This data cannot be linked back to individual users.</p>
-      </Section>
-
-      <Section title="2. How We Use Your Information">
-        <p>We use your data solely to operate and improve AICS. We do not sell, rent, or trade your personal information to third parties under any circumstances.</p>
-        <ul className="list-disc ml-5 space-y-1">
-          <li>Deliver and personalise the AICS experience</li>
-          <li>Send product updates and security alerts (opt-out available)</li>
-          <li>Diagnose technical issues and improve performance</li>
-          <li>Meet legal obligations where applicable</li>
-        </ul>
-      </Section>
-
-      <Section title="3. Document Security">
-        <p>All uploaded PDFs are encrypted in transit using TLS 1.3. Files processed through our engine are purged from temporary storage within 60 minutes of session end. Enterprise customers may configure zero-retention mode for maximum compliance.</p>
-      </Section>
-
-      <Section title="4. Cookies & Tracking">
-        <p>We use essential cookies for authentication and session management. Optional analytics cookies (Google Analytics 4) can be declined via our cookie banner or your browser settings. We do not use advertising or cross-site tracking cookies.</p>
-      </Section>
-
-      <Section title="5. Your Rights">
-        <p>Under GDPR, CCPA, and similar regulations you have the right to access, correct, export, or delete your data at any time. Submit requests to <span style={{ color: "#1a2e6e", fontWeight: 600 }}>privacy@aics.ai</span>. We respond within 30 days.</p>
-      </Section>
-
-      <Section title="6. Data Retention">
-        <p>Account data is retained for the lifetime of your account plus 90 days after deletion to comply with accounting obligations. Uploaded document data follows the session-purge policy described in Section 3.</p>
-      </Section>
-
-      <Section title="7. Changes to This Policy">
-        <p>We will notify registered users by email at least 14 days before any material changes take effect. Continued use after that date constitutes acceptance.</p>
-      </Section>
-
-      <p className="text-xs mt-6" style={{ color: "#9ca3af" }}>Questions? Contact our Data Protection Officer at <strong>dpo@aics.ai</strong>.</p>
-    </div>
-  )
-}
-
-// ─── Terms Page ───────────────────────────────────────────────────────────────
-function TermsContent() {
-  const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
-    <div className="mb-7">
-      <h3 className="royal-title font-bold text-base mb-2" style={{ color: "#1a2e6e" }}>{title}</h3>
-      <div className="text-sm leading-relaxed space-y-2" style={{ color: "#4b5563" }}>{children}</div>
-    </div>
-  )
-  return (
-    <div>
-      <p className="text-sm mb-6 leading-relaxed" style={{ color: "#6b7280" }}>
-        <strong style={{ color: "#1a2e6e" }}>Effective Date: January 1, 2026</strong>
-        <br />
-        Please read these Terms of Service carefully before using the AICS platform. By accessing or using our services you agree to be bound by these terms.
-      </p>
-
-      <hr className="gold-divider mb-6" />
-
-      <Section title="1. Acceptance of Terms">
-        <p>By creating an account or using any AICS service you confirm that you are at least 16 years old and have the legal authority to enter into this agreement on behalf of yourself or your organisation.</p>
-      </Section>
-
-      <Section title="2. Permitted Use">
-        <p>AICS grants you a limited, non-exclusive, non-transferable licence to access and use the platform for lawful document search and analysis. You may not:</p>
-        <ul className="list-disc ml-5 space-y-1">
-          <li>Reverse-engineer, decompile, or extract our proprietary search algorithms</li>
-          <li>Upload documents that violate third-party intellectual property rights</li>
-          <li>Use the service to process classified government documents without an Enterprise agreement</li>
-          <li>Resell or sublicence access without written approval</li>
-        </ul>
-      </Section>
-
-      <Section title="3. Intellectual Property">
-        <p>You retain full ownership of any documents you upload. AICS retains ownership of the platform, its search engine, UI, and all underlying technology. Nothing in these terms transfers IP rights either way beyond the scope explicitly stated.</p>
-      </Section>
-
-      <Section title="4. Service Availability">
-        <p>We target 99.9% monthly uptime. Scheduled maintenance windows are announced 48 hours in advance via our status page at <span style={{ color: "#1a2e6e", fontWeight: 600 }}>status.aics.ai</span>. Downtime credits are available for Enterprise plans per the SLA addendum.</p>
-      </Section>
-
-      <Section title="5. Payment & Billing">
-        <p>Paid plans are billed monthly or annually in advance. All fees are non-refundable except where required by law. You may cancel at any time; cancellation takes effect at the end of the current billing period. We reserve the right to adjust pricing with 30 days notice.</p>
-      </Section>
-
-      <Section title="6. Limitation of Liability">
-        <p>To the maximum extent permitted by law, AICS's total liability for any claim arising from these terms or use of the service is limited to the fees you paid in the 12 months preceding the claim. We are not liable for indirect, consequential, or punitive damages.</p>
-      </Section>
-
-      <Section title="7. Governing Law">
-        <p>These terms are governed by the laws of the State of Delaware, USA, without regard to conflict-of-law provisions. Disputes shall be resolved by binding arbitration under AAA Commercial Rules, except for injunctive relief which may be sought in courts of competent jurisdiction.</p>
-      </Section>
-
-      <Section title="8. Termination">
-        <p>Either party may terminate the agreement at any time. AICS may suspend accounts that violate these terms with or without notice depending on severity. Upon termination, your data will be deleted per our Privacy Policy retention schedule.</p>
-      </Section>
-
-      <p className="text-xs mt-6" style={{ color: "#9ca3af" }}>For legal enquiries: <strong>legal@aics.ai</strong></p>
-    </div>
-  )
-}
-
-// ─── Contact Page ─────────────────────────────────────────────────────────────
-function ContactContent() {
-  return (
-    <div>
-      <p className="text-sm mb-6 leading-relaxed" style={{ color: "#6b7280" }}>
-        Have a question or need support? Reach out to us directly — we're happy to help.
-      </p>
-
-      <hr className="gold-divider mb-6" />
-
-      <div className="grid grid-cols-2 gap-4">
-        {[
-          { icon: <Mail className="size-6" />, label: "Email", value: "hello@aics.ai", sub: "We reply within 4 business hours" },
-          { icon: <Phone className="size-6" />, label: "Phone", value: "+1 (800) 247-2427", sub: "Mon–Fri, 9 AM – 6 PM EST" },
-        ].map(c => (
-          <div key={c.label} className="rounded-2xl p-6" style={{ background: "#f8f7ff", border: "1px solid rgba(201,168,76,0.28)" }}>
-            <div className="flex items-center justify-center w-11 h-11 rounded-xl mb-4" style={{ background: "linear-gradient(135deg, #1a2e6e, #4c1d95)" }}>
-              <span style={{ color: "#fbbf24" }}>{c.icon}</span>
-            </div>
-            <p className="text-xs font-bold tracking-widest uppercase mb-1" style={{ color: "#92400e", letterSpacing: "0.12em" }}>{c.label}</p>
-            <p className="text-base font-semibold mb-1" style={{ color: "#1a2e6e" }}>{c.value}</p>
-            <p className="text-xs" style={{ color: "#9ca3af" }}>{c.sub}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// ─── Features Content ─────────────────────────────────────────────────────────
-function FeaturesContent() {
-  const featureList = [
-    {
-      title: "Large File Support",
-      desc: "Upload PDF files up to 5TB in size. No matter how large your document, we process it efficiently with our powerful engine.",
-      accent: "#1a2e6e",
-      emoji: "📤",
-    },
-    {
-      title: "Smart Search",
-      desc: "Find exact keyword matches across all documents instantly. View results with full context and highlighting.",
-      accent: "#4c1d95",
-      emoji: "🔍",
-    },
-    {
-      title: "Export Reports",
-      desc: "Generate professional Word documents with all your findings. Perfect for sharing insights with your team.",
-      accent: "#b8860b",
-      emoji: "📄",
-    },
-  ]
-  return (
-    <div>
-      <p className="text-sm mb-6 leading-relaxed" style={{ color: "#6b7280" }}>
-        Powerful features designed to transform how you work with documents.
-      </p>
-      <hr className="gold-divider mb-6" />
-      <div className="space-y-4">
-        {featureList.map(({ title, desc, accent, emoji }) => (
-          <div key={title} className="feature-card rounded-2xl p-6 flex gap-5 items-start">
-            <div className="flex-shrink-0 inline-flex p-3 rounded-xl text-xl" style={{ background: `${accent}10`, border: `1px solid ${accent}25` }}>
-              {emoji}
-            </div>
-            <div>
-              <div className="h-0.5 w-8 rounded-full mb-2" style={{ background: `linear-gradient(90deg, ${accent}, #c9a84c)` }} />
-              <h3 className="royal-title text-base font-bold mb-1" style={{ color: "#111827" }}>{title}</h3>
-              <p className="text-sm leading-relaxed" style={{ color: "#6b7280" }}>{desc}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// ─── Main Landing Page ────────────────────────────────────────────────────────
 export function LandingPage() {
-  const [activeModal, setActiveModal] = useState<"Privacy" | "Terms" | "Contact" | "Features" | null>(null)
-
-  const modalContent: Record<string, { title: string; component: React.ReactNode }> = {
-    Privacy: { title: "Privacy Policy", component: <PrivacyContent /> },
-    Terms: { title: "Terms of Service", component: <TermsContent /> },
-    Contact: { title: "Contact Us", component: <ContactContent /> },
-    Features: { title: "Features", component: <FeaturesContent /> },
+  const [activeModal, setActiveModal] = useState<"Privacy"|"Terms"|"Contact"|"Features"|null>(null)
+  const modalContent: Record<string,{title:string;component:React.ReactNode}> = {
+    Privacy:  { title:"Privacy Policy",    component:<PrivacyContent /> },
+    Terms:    { title:"Terms of Service",  component:<TermsContent /> },
+    Contact:  { title:"Contact Us",        component:<ContactContent /> },
+    Features: { title:"Features",          component:<FeaturesContent /> },
   }
 
+  const stats = [
+    { num:"50+",  label:"Keywords tracked" },
+    { num:"5TB",  label:"Max file size" },
+    { num:"100%", label:"In-memory processing" },
+    { num:"<1s",  label:"Search speed" },
+  ]
+
+  const steps = [
+    { icon:<FileText className="size-5"/>,   num:"01", title:"Upload PDF",        desc:"Drop any PDF file — up to 5TB supported" },
+    { icon:<Search className="size-5"/>,     num:"02", title:"Auto-Search",       desc:"Keywords are matched across every page instantly" },
+    { icon:<Download className="size-5"/>,   num:"03", title:"Export Results",    desc:"Download a polished Word document with findings" },
+  ]
+
   return (
-    <div className="min-h-screen relative overflow-hidden flex flex-col" style={{ fontFamily: "'DM Sans', sans-serif", background: "#ffffff" }}>
+    <div className="min-h-screen relative overflow-hidden flex flex-col" style={{ fontFamily:"'DM Sans',sans-serif" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=DM+Sans:wght@300;400;500;600;700&display=swap');
 
-        .royal-title { font-family: 'Playfair Display', serif; }
+        @keyframes fadeUp   { from{opacity:0;transform:translateY(28px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes fadeIn   { from{opacity:0} to{opacity:1} }
+        @keyframes float    { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+        @keyframes shimmer  { 0%{background-position:-200% center} 100%{background-position:200% center} }
+        @keyframes pulse    { 0%,100%{box-shadow:0 0 0 0 rgba(201,168,76,0.4)} 50%{box-shadow:0 0 0 8px rgba(201,168,76,0)} }
+        @keyframes borderGlow { 0%,100%{border-color:rgba(201,168,76,0.3)} 50%{border-color:rgba(201,168,76,0.7)} }
+        @keyframes scanLine { 0%{top:-4px} 100%{top:100%} }
+        @keyframes countUp  { from{opacity:0;transform:scale(0.8)} to{opacity:1;transform:scale(1)} }
 
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(24px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes float {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-10px); }
-        }
-        @keyframes shimmer {
-          0% { background-position: -200% center; }
-          100% { background-position: 200% center; }
-        }
-        @keyframes crownPulse {
-          0%, 100% { box-shadow: 0 2px 12px rgba(201,168,76,0.2); }
-          50% { box-shadow: 0 4px 24px rgba(201,168,76,0.45); }
-        }
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-
-        .animate-fade-up { animation: fadeUp 0.7s ease forwards; }
-        .anim-d1 { animation: fadeUp 0.7s ease 0.1s both; }
-        .anim-d2 { animation: fadeUp 0.7s ease 0.25s both; }
-        .anim-d3 { animation: fadeUp 0.7s ease 0.4s both; }
-        .anim-d4 { animation: fadeUp 0.7s ease 0.55s both; }
-        .animate-float { animation: float 5s ease-in-out 0.8s infinite; }
-        .animate-spin { animation: spin 0.8s linear infinite; }
+        .anim-d0 { animation: fadeUp 0.7s ease 0.0s both }
+        .anim-d1 { animation: fadeUp 0.7s ease 0.12s both }
+        .anim-d2 { animation: fadeUp 0.7s ease 0.24s both }
+        .anim-d3 { animation: fadeUp 0.7s ease 0.36s both }
+        .anim-d4 { animation: fadeUp 0.7s ease 0.5s both }
+        .anim-d5 { animation: fadeUp 0.7s ease 0.65s both }
+        .float   { animation: float 6s ease-in-out infinite }
 
         .gold-shimmer {
-          background: linear-gradient(90deg, #b8860b, #f5d06e, #c9a84c, #f5d06e, #b8860b);
-          background-size: 200% auto;
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
+          background: linear-gradient(90deg,#b8860b,#f5d06e,#c9a84c,#f5d06e,#b8860b);
+          background-size:200% auto;
+          -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
           animation: shimmer 4s linear infinite;
         }
-
         .royal-gradient-text {
-          background: linear-gradient(135deg, #1a2e6e 0%, #4c1d95 60%, #1a2e6e 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
+          background: linear-gradient(135deg,#1a2e6e 0%,#4c1d95 60%,#1a2e6e 100%);
+          -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
         }
-
-        .royal-card {
-          background: rgba(255,255,255,0.92);
-          backdrop-filter: blur(24px);
-          border: 1px solid rgba(201,168,76,0.35);
-          box-shadow: 0 8px 50px rgba(26,46,110,0.1), 0 1px 0 rgba(201,168,76,0.5) inset;
-        }
-
-        .feature-card {
-          background: rgba(255,255,255,0.95);
-          border: 1px solid rgba(201,168,76,0.22);
-          box-shadow: 0 2px 20px rgba(26,46,110,0.06);
-          transition: all 0.25s;
-        }
-        .feature-card:hover {
-          border-color: rgba(201,168,76,0.5);
-          box-shadow: 0 8px 36px rgba(76,29,149,0.13);
-          transform: translateY(-4px);
-        }
-
         .btn-royal {
-          background: linear-gradient(135deg, #1a2e6e, #4c1d95);
-          color: #fff;
+          background: linear-gradient(135deg,#1a2e6e,#4c1d95);
+          color:#fff;
           box-shadow: 0 4px 20px rgba(26,46,110,0.3);
           transition: all 0.2s;
-          position: relative;
-          overflow: hidden;
+          display:inline-flex; align-items:center;
         }
-        .btn-royal:hover { box-shadow: 0 8px 30px rgba(26,46,110,0.45); transform: translateY(-1px); }
+        .btn-royal:hover { box-shadow:0 8px 32px rgba(26,46,110,0.5); transform:translateY(-2px) }
 
-        .gold-divider {
-          height: 1.5px;
-          background: linear-gradient(90deg, transparent, #c9a84c, #f5d06e, #c9a84c, transparent);
-          border: none;
-          margin: 0;
+        .btn-outline {
+          background: transparent;
+          border: 1.5px solid rgba(26,46,110,0.3);
+          color: #1a2e6e;
+          transition: all 0.2s;
+          display:inline-flex; align-items:center;
         }
+        .btn-outline:hover { background:rgba(26,46,110,0.05); border-color:#1a2e6e; transform:translateY(-1px) }
 
-        .result-item {
-          border-left: 2px solid rgba(201,168,76,0.35);
+        .royal-card {
+          background: rgba(255,255,255,0.95);
+          backdrop-filter: blur(24px);
+          border: 1px solid rgba(201,168,76,0.3);
+          box-shadow: 0 12px 60px rgba(26,46,110,0.1), 0 1px 0 rgba(201,168,76,0.4) inset;
+        }
+        .step-card {
+          background: rgba(255,255,255,0.9);
+          border: 1px solid rgba(201,168,76,0.2);
+          box-shadow: 0 4px 24px rgba(26,46,110,0.07);
+          transition: all 0.25s;
+        }
+        .step-card:hover { transform:translateY(-6px); box-shadow:0 16px 48px rgba(26,46,110,0.14); border-color:rgba(201,168,76,0.5) }
+
+        .stat-card {
+          background: rgba(255,255,255,0.9);
+          border: 1px solid rgba(201,168,76,0.2);
           transition: all 0.2s;
         }
-        .result-item:hover { border-left-color: #c9a84c; }
+        .stat-card:hover { border-color:rgba(201,168,76,0.5); transform:translateY(-3px) }
 
-        .crown-badge {
-          background: linear-gradient(135deg, #fef9ec, #fef3c7);
+        .badge-pill {
+          background: linear-gradient(135deg,#fef9ec,#fef3c7);
           border: 1px solid rgba(201,168,76,0.4);
-          animation: crownPulse 3s ease-in-out infinite;
-        }
-
-        .stat-num {
-          font-family: 'Playfair Display', serif;
-          background: linear-gradient(135deg, #1a2e6e, #4c1d95);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
+          animation: pulse 3s ease-in-out infinite;
         }
 
         .header-bar {
-          border-bottom: 1px solid rgba(201,168,76,0.2);
-          background: rgba(255,255,255,0.92);
+          border-bottom: 1px solid rgba(201,168,76,0.15);
+          background: rgba(255,255,255,0.88);
           backdrop-filter: blur(20px);
         }
 
-        .footer-link {
-          transition: color 0.18s;
+        .scan-line {
+          position:absolute; left:0; right:0; height:2px;
+          background: linear-gradient(90deg,transparent,rgba(201,168,76,0.6),transparent);
+          animation: scanLine 3s linear infinite;
         }
-        .footer-link:hover {
-          color: #b45309 !important;
+
+        .nav-link {
+          position:relative; color:#374151; font-weight:500; font-size:14px;
+          background:none; border:none; cursor:pointer; padding:4px 0;
+          transition: color 0.2s; font-family:inherit;
+        }
+        .nav-link::after {
+          content:''; position:absolute; bottom:-2px; left:0; right:0; height:2px;
+          background:linear-gradient(90deg,#1a2e6e,#c9a84c);
+          transform:scaleX(0); transition:transform 0.2s; transform-origin:left;
+        }
+        .nav-link:hover { color:#1a2e6e }
+        .nav-link:hover::after { transform:scaleX(1) }
+
+        .footer-link { transition:color 0.18s; color:#9ca3af; background:none; border:none; cursor:pointer; font-family:inherit; font-size:13px; font-weight:500 }
+        .footer-link:hover { color:#b45309 !important }
+
+        .result-row {
+          border-left:2px solid rgba(201,168,76,0.25);
+          transition:all 0.18s;
+          background:#fafafa;
+        }
+        .result-row:hover { border-left-color:#c9a84c; background:#fff }
+
+        .keyword-tag {
+          background: linear-gradient(135deg,rgba(26,46,110,0.08),rgba(76,29,149,0.08));
+          border: 1px solid rgba(76,29,149,0.15);
+          color: #4c1d95;
+          font-size:10px; font-weight:700; letter-spacing:0.05em;
+          border-radius:6px; padding:2px 7px;
         }
       `}</style>
 
       <ParticleCanvas />
 
-      {/* Header */}
-      <header className="header-bar relative z-10">
-        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
-          <Link href="/" className="flex items-center gap-3 animate-fade-up">
-            <div className="p-2.5 rounded-xl" style={{ background: "linear-gradient(135deg, #1a2e6e, #4c1d95)", boxShadow: "0 4px 14px rgba(26,46,110,0.3)" }}>
+      {/* ── Header ── */}
+      <header className="header-bar relative z-10 sticky top-0">
+        <div className="mx-auto flex h-18 max-w-7xl items-center justify-between px-6" style={{ height:"72px" }}>
+          <Link href="/" className="flex items-center gap-3 anim-d0">
+            <div className="p-2.5 rounded-xl" style={{ background:"linear-gradient(135deg,#1a2e6e,#4c1d95)", boxShadow:"0 4px 14px rgba(26,46,110,0.3)" }}>
               <FileSearch className="size-5 text-yellow-300" />
             </div>
             <div className="flex flex-col">
-              <span className="royal-title text-xl font-black tracking-wide royal-gradient-text">AICS</span>
-              <span className="text-xs tracking-widest uppercase hidden sm:block" style={{ color: "#92400e", letterSpacing: "0.18em", fontSize: "10px" }}>PDF Search Engine</span>
+              <span style={{ fontFamily:"'Playfair Display',serif", fontSize:"20px", fontWeight:900, background:"linear-gradient(135deg,#1a2e6e,#4c1d95)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>AICS</span>
+              <span style={{ fontSize:"9px", letterSpacing:"0.2em", color:"#92400e", fontWeight:700, textTransform:"uppercase" }}>PDF Search Engine</span>
             </div>
           </Link>
-          <nav className="flex items-center gap-6">
-            <button
-              onClick={() => setActiveModal("Features")}
-              className="animate-fade-up text-sm font-semibold transition-colors bg-transparent border-none cursor-pointer p-0"
-              style={{ color: "#1a2e6e", borderBottom: "2px solid transparent", paddingBottom: "2px", fontFamily: "inherit" }}
-            >
-              Features
-            </button>
-            <Link href="/login" className="btn-royal animate-fade-up rounded-xl px-7 py-2.5 text-sm font-semibold">
-              Sign In
+
+          <nav className="flex items-center gap-8">
+            <Link href="/login" className="btn-royal anim-d2 rounded-xl px-6 py-2.5 text-sm font-semibold gap-2">
+              Sign In <ArrowRight className="size-4" />
             </Link>
           </nav>
         </div>
       </header>
 
-      {/* Hero */}
-      <main className="relative z-10 mx-auto w-full max-w-7xl px-6 py-12 md:py-16 flex-1">
-        <div className="flex flex-col items-center gap-16 lg:flex-row lg:gap-20">
+      {/* ── Hero ── */}
+      <main className="relative z-10 flex-1" style={{ display:"flex", alignItems:"center", overflow:"hidden" }}>
+        <section style={{ width:"100%", maxWidth:"1280px", margin:"0 auto", padding:"0 24px" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:"48px", flexWrap:"wrap" }}>
 
-          {/* Left */}
-          <div className="flex-1 space-y-8">
-            <div className="crown-badge anim-d1 inline-flex items-center gap-2 rounded-full px-5 py-2.5">
-              <span className="text-base">👑</span>
-              <span className="text-sm font-semibold" style={{ color: "#92400e" }}>Lightning-fast document analysis</span>
-            </div>
-
-            <h1 className="royal-title anim-d1 text-5xl font-black leading-tight md:text-6xl lg:text-7xl">
-              <span className="royal-gradient-text">Find Anything</span>
-              <br />
-              <span className="gold-shimmer">In Your PDFs</span>
-            </h1>
-
-            <p className="anim-d2 max-w-lg text-lg leading-relaxed" style={{ color: "#374151" }}>
-              Transform how you work with documents. Search through massive PDFs instantly,
-              extract insights, and export results — supporting files up to 5TB.
-            </p>
-
-            <hr className="gold-divider anim-d2" style={{ maxWidth: "220px" }} />
-
-            <div className="anim-d3 flex items-center gap-8 text-sm font-medium" style={{ color: "#4b5563" }}>
-              <div className="flex items-center gap-2">
-                <Shield className="size-4" style={{ color: "#1a2e6e" }} />
-                <span>Secure & Private</span>
+            {/* Left */}
+            <div style={{ flex:1, maxWidth:"560px", display:"flex", flexDirection:"column", gap:"16px" }}>
+              <div className="badge-pill anim-d0 inline-flex items-center gap-2 rounded-full px-4 py-2">
+                <Zap className="size-3.5" style={{ color:"#b8860b" }} />
+                <span style={{ fontSize:"12px", fontWeight:700, color:"#92400e" }}>Lightning-fast document analysis</span>
               </div>
-              <div className="flex items-center gap-2">
-                <Clock className="size-4" style={{ color: "#4c1d95" }} />
-                <span>Save Hours Daily</span>
-              </div>
-            </div>
-          </div>
 
-          {/* Right — Royal Card */}
-          <div className="flex-1 anim-d4">
-            <div className="animate-float">
-              <div className="h-1 w-full rounded-t-2xl" style={{ background: "linear-gradient(90deg, #1a2e6e, #c9a84c, #f5d06e, #c9a84c, #4c1d95)" }} />
-              <div className="royal-card rounded-b-2xl rounded-tr-2xl p-8">
-                <div className="space-y-5">
-                  <div className="flex items-center gap-3 rounded-xl px-4 py-3" style={{ background: "#f8f7ff", border: "1px solid rgba(201,168,76,0.28)" }}>
-                    <Search className="size-5 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Search across all documents..."
-                      className="flex-1 bg-transparent outline-none text-sm placeholder:text-gray-400"
-                      style={{ color: "#1f2937" }}
-                      disabled
-                    />
-                    <kbd className="rounded-lg px-2 py-1 text-xs font-bold" style={{ background: "linear-gradient(135deg, #1a2e6e, #4c1d95)", color: "#fbbf24" }}>⌘K</kbd>
+              <div className="anim-d1 space-y-2">
+                <h1 style={{ fontFamily:"'Playfair Display',serif", fontSize:"clamp(36px,4vw,56px)", fontWeight:900, lineHeight:1.08 }}>
+                  <span className="royal-gradient-text">Find Anything</span>
+                  <br />
+                  <span className="gold-shimmer">In Your PDFs</span>
+                </h1>
+              </div>
+
+              <p className="anim-d2" style={{ color:"#4b5563", maxWidth:"480px", fontSize:"15px", lineHeight:1.65 }}>
+                Transform compliance workflows. Upload PDFs, search keywords instantly,
+                extract paragraphs with context, and export professional reports.
+              </p>
+
+              <div className="anim-d4 flex items-center gap-6">
+                {[
+                  { icon:<Shield className="size-3.5"/>, label:"Secure & Private" },
+                  { icon:<Clock className="size-3.5"/>,  label:"Save Hours Daily" },
+                  { icon:<Zap className="size-3.5"/>,    label:"No Storage Needed" },
+                ].map(({ icon, label }) => (
+                  <div key={label} className="flex items-center gap-1.5" style={{ color:"#6b7280", fontSize:"12px", fontWeight:500 }}>
+                    <span style={{ color:"#1a2e6e" }}>{icon}</span>
+                    {label}
                   </div>
-                  <div className="space-y-2.5">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="result-item rounded-r-xl px-4 py-3 cursor-pointer" style={{ background: "#fafafa" }}>
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 space-y-1">
+                ))}
+              </div>
+            </div>
+
+            {/* Right — Preview Card */}
+            <div className="flex-1 anim-d5 w-full max-w-md">
+              <div className="float">
+                <div className="h-1 w-full rounded-t-2xl" style={{ background:"linear-gradient(90deg,#1a2e6e,#c9a84c,#f5d06e,#c9a84c,#4c1d95)" }} />
+                <div className="royal-card rounded-b-2xl rounded-tr-2xl relative overflow-hidden" style={{ padding:"20px" }}>
+                  <div className="scan-line" />
+
+                  {/* Mock search bar */}
+                  <div className="flex items-center gap-3 rounded-xl px-4 py-2.5 mb-4" style={{ background:"#f3f1ff", border:"1px solid rgba(76,29,149,0.15)" }}>
+                    <Search className="size-4" style={{ color:"#9ca3af" }} />
+                    <span style={{ fontSize:"13px", color:"#9ca3af", flex:1 }}>Searching keywords...</span>
+                    <span className="keyword-tag">ABUSE</span>
+                    <span className="keyword-tag">HIT</span>
+                  </div>
+
+                  {/* Mock results */}
+                  <div className="space-y-2 mb-4">
+                    {[
+                      { page:4,  resident:"J. Smith",   kw:"CONCERN",  matches:2 },
+                      { page:11, resident:"M. Johnson",  kw:"WANDER",   matches:1 },
+                      { page:17, resident:"R. Davis",   kw:"APS",      matches:3 },
+                    ].map((r,i) => (
+                      <div key={i} className="result-row rounded-r-xl px-3 py-2.5">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
                             <div className="flex items-center gap-2">
-                              <FileSearch className="size-4" style={{ color: "#1a2e6e" }} />
-                              <span className="text-sm font-semibold" style={{ color: "#1a2e6e" }}>Document_{i}.pdf</span>
+                              <span className="keyword-tag">{r.kw}</span>
+                              <span style={{ fontSize:"12px", fontWeight:600, color:"#1a2e6e" }}>{r.resident}</span>
                             </div>
-                            <p className="text-xs" style={{ color: "#6b7280" }}>
-                              Found <span className="font-bold" style={{ color: "#b8860b" }}>{i * 3}</span> matches on page {i * 2}
-                            </p>
+                            <p style={{ fontSize:"11px", color:"#9ca3af" }}>Page {r.page} · {r.matches} match{r.matches>1?"es":""} found</p>
                           </div>
-                          <div className="h-2 w-2 rounded-full mt-1 animate-pulse" style={{ background: "#c9a84c", boxShadow: "0 0 6px #c9a84c" }} />
+                          <div className="h-2 w-2 rounded-full animate-pulse" style={{ background:"#c9a84c", boxShadow:"0 0 8px rgba(201,168,76,0.6)" }} />
                         </div>
                       </div>
                     ))}
+                  </div>
+
+                  {/* Export button mock */}
+                  <div className="flex items-center justify-between rounded-xl px-4 py-3" style={{ background:"linear-gradient(135deg,rgba(26,46,110,0.05),rgba(76,29,149,0.05))", border:"1px solid rgba(201,168,76,0.2)" }}>
+                    <div>
+                      <p style={{ fontSize:"12px", fontWeight:700, color:"#1a2e6e" }}>3 paragraphs extracted</p>
+                      <p style={{ fontSize:"11px", color:"#9ca3af" }}>Ready to export</p>
+                    </div>
+                    <div className="flex items-center gap-2 rounded-lg px-3 py-1.5" style={{ background:"linear-gradient(135deg,#1a2e6e,#4c1d95)", boxShadow:"0 4px 12px rgba(26,46,110,0.3)" }}>
+                      <Download className="size-3.5 text-yellow-300" />
+                      <span style={{ fontSize:"12px", fontWeight:700, color:"#fff" }}>Export .docx</span>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        </section>
       </main>
 
-      {/* Footer */}
-      <footer className="relative z-10 py-5 mt-auto" style={{ borderTop: "1px solid rgba(201,168,76,0.22)", background: "rgba(255,255,255,0.97)" }}>
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <FileSearch className="size-4" style={{ color: "#1a2e6e" }} />
-              <span className="royal-title text-sm font-bold royal-gradient-text">© 2026 AICS.</span>
-              <span className="text-sm" style={{ color: "#9ca3af" }}>All rights reserved.</span>
+      {/* ── Footer ── */}
+      <footer className="relative z-10" style={{ borderTop:"1px solid rgba(201,168,76,0.18)", background:"rgba(255,255,255,0.98)" }}>
+        {/* Top footer bar */}
+        <div className="mx-auto max-w-7xl px-6 py-5">
+          <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:"32px" }}>
+            {/* Brand */}
+            <div style={{ maxWidth:"280px" }}>
+              <p style={{ fontFamily:"'Playfair Display',serif", fontSize:"13px", color:"#1a2e6e", fontWeight:700, marginBottom:"6px" }}>Built for compliance teams.</p>
+              <p style={{ fontSize:"12px", color:"#9ca3af", lineHeight:1.65 }}>
+                Search, extract, and export compliance findings from any PDF — instantly, securely, with zero data stored.
+              </p>
             </div>
-            <div className="flex items-center gap-6 text-sm font-medium">
-              {(["Privacy", "Terms", "Contact"] as const).map(l => (
-                <button
-                  key={l}
-                  onClick={() => setActiveModal(l)}
-                  className="footer-link transition-colors cursor-pointer bg-transparent border-none p-0"
-                  style={{ color: "#9ca3af", fontFamily: "inherit", fontSize: "14px", fontWeight: 500 }}
-                >
-                  {l}
-                </button>
-              ))}
+
+            {/* Links */}
+            <div style={{ display:"flex", gap:"48px" }}>
+              <div>
+                <div style={{ fontSize:"10px", fontWeight:700, letterSpacing:"0.16em", color:"#92400e", textTransform:"uppercase", marginBottom:"10px" }}>Product</div>
+                <div style={{ display:"flex", flexDirection:"column", gap:"8px" }}>
+                  <button onClick={() => setActiveModal("Features")} className="footer-link" style={{ textAlign:"left" }}>Features & How It Works</button>
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize:"10px", fontWeight:700, letterSpacing:"0.16em", color:"#92400e", textTransform:"uppercase", marginBottom:"10px" }}>Legal</div>
+                <div style={{ display:"flex", flexDirection:"column", gap:"8px" }}>
+                  <button onClick={() => setActiveModal("Privacy")} className="footer-link" style={{ textAlign:"left" }}>Privacy Policy</button>
+                  <button onClick={() => setActiveModal("Terms")} className="footer-link" style={{ textAlign:"left" }}>Terms of Service</button>
+                  <button onClick={() => setActiveModal("Contact")} className="footer-link" style={{ textAlign:"left" }}>Contact</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom bar */}
+        <div style={{ borderTop:"1px solid rgba(201,168,76,0.12)", padding:"16px 0" }}>
+          <div className="mx-auto max-w-7xl px-6 flex flex-col md:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span style={{ fontSize:"12px", color:"#9ca3af" }}>© 2026 AICS. All rights reserved.</span>
+            </div>
+            <div className="flex items-center gap-2" style={{ fontSize:"12px", color:"#9ca3af" }}>
+              <Shield className="size-3" style={{ color:"#1a2e6e" }} />
+              <span>Zero data retention · In-memory processing · TLS 1.3 encrypted</span>
             </div>
           </div>
         </div>
       </footer>
 
-      {/* Modals */}
       {activeModal && (
         <Modal title={modalContent[activeModal].title} onClose={() => setActiveModal(null)}>
           {modalContent[activeModal].component}

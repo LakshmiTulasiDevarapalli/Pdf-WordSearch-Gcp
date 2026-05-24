@@ -112,8 +112,8 @@ export default function LoginAuditPage() {
   return (
     <div className="min-h-screen" style={{ fontFamily: "'DM Sans', sans-serif", background: "#f8f7ff" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600&display=swap');
-        .royal-title { font-family: 'Playfair Display', serif; }
+        @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500;600;700&display=swap');
+        .royal-title { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; }
         .royal-gradient-text {
           background: linear-gradient(135deg, #1a2e6e 0%, #4c1d95 60%, #1a2e6e 100%);
           -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;

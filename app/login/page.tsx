@@ -1,14 +1,12 @@
 "use client"
-// app/login/page.tsx — real Supabase Auth sign-in
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { FileSearch, Mail, Lock, ArrowRight } from "lucide-react"
+import { FileSearch, Mail, Lock, ArrowRight, Eye, EyeOff } from "lucide-react"
 import { useState, useEffect, useRef } from "react"
-import { supabase } from "@/lib/supabase" // your existing client
+import { supabase } from "@/lib/supabase"
 import { recordAuditEvent } from "@/lib/login-audit"
 
-/* ── ParticleCanvas (unchanged) ─────────────────────────── */
 function ParticleCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   useEffect(() => {
@@ -16,223 +14,251 @@ function ParticleCanvas() {
     if (!canvas) return
     const ctx = canvas.getContext("2d")
     if (!ctx) return
-    let animationId: number
-    const PARTICLE_COUNT = 80
+    let id: number
     const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight }
-    resize()
-    window.addEventListener("resize", resize)
-    class Particle {
-      x: number; y: number; vx: number; vy: number; radius: number; opacity: number; color: string
-      constructor() {
-        this.x = Math.random() * canvas.width; this.y = Math.random() * canvas.height
-        this.vx = (Math.random() - 0.5) * 0.3; this.vy = (Math.random() - 0.5) * 0.3
-        this.radius = Math.random() * 2 + 0.5; this.opacity = Math.random() * 0.3 + 0.08
-        this.color = ["#c9a84c","#1a2e6e","#6b21a8","#b8860b","#4c1d95","#1e3a8a"][Math.floor(Math.random()*6)]
-      }
-      update() {
-        this.x += this.vx; this.y += this.vy
-        if (this.x < 0) this.x = canvas.width; if (this.x > canvas.width) this.x = 0
-        if (this.y < 0) this.y = canvas.height; if (this.y > canvas.height) this.y = 0
-      }
-      draw() {
-        ctx!.save(); ctx!.globalAlpha = this.opacity; ctx!.fillStyle = this.color
-        ctx!.shadowBlur = 8; ctx!.shadowColor = this.color
-        ctx!.beginPath(); ctx!.arc(this.x, this.y, this.radius, 0, Math.PI * 2); ctx!.fill(); ctx!.restore()
-      }
+    resize(); window.addEventListener("resize", resize)
+    class P {
+      x=Math.random()*canvas!.width; y=Math.random()*canvas!.height
+      vx=(Math.random()-.5)*.18; vy=(Math.random()-.5)*.18
+      r=Math.random()*1.4+.3; o=Math.random()*.15+.03
+      c=["#c9a84c","#1a2e6e","#6b21a8","#4c1d95"][Math.floor(Math.random()*4)]
+      update(){this.x+=this.vx;this.y+=this.vy;if(this.x<0)this.x=canvas!.width;if(this.x>canvas!.width)this.x=0;if(this.y<0)this.y=canvas!.height;if(this.y>canvas!.height)this.y=0}
+      draw(){ctx!.save();ctx!.globalAlpha=this.o;ctx!.fillStyle=this.c;ctx!.beginPath();ctx!.arc(this.x,this.y,this.r,0,Math.PI*2);ctx!.fill();ctx!.restore()}
     }
-    const particles = Array.from({ length: PARTICLE_COUNT }, () => new Particle())
-    let patternOffset = 0
-    const drawOrnatePattern = () => {
-      patternOffset += 0.0005
-      const spacing = 60; ctx.save()
-      for (let x = 0; x < canvas.width + spacing; x += spacing)
-        for (let y = 0; y < canvas.height + spacing; y += spacing) {
-          const wave = Math.sin(patternOffset + x * 0.01 + y * 0.01) * 0.5 + 0.5
-          ctx.globalAlpha = 0.025 + wave * 0.025; ctx.fillStyle = "#c9a84c"
-          ctx.save(); ctx.translate(x, y); ctx.rotate(Math.PI/4); ctx.fillRect(-3,-3,6,6); ctx.restore()
-        }
-      ctx.restore()
-    }
-    let bloomOffset = 0
-    const drawBlooms = () => {
-      bloomOffset += 0.002
-      const g1 = ctx.createRadialGradient(canvas.width*.08,canvas.height*.05,0,canvas.width*.08,canvas.height*.05,canvas.width*.4)
-      g1.addColorStop(0,`hsla(43,74%,60%,${0.07+Math.sin(bloomOffset)*.02})`); g1.addColorStop(1,"transparent")
-      ctx.fillStyle=g1; ctx.fillRect(0,0,canvas.width,canvas.height)
-      const g2 = ctx.createRadialGradient(canvas.width*.92,canvas.height*.08,0,canvas.width*.92,canvas.height*.08,canvas.width*.35)
-      g2.addColorStop(0,`hsla(270,80%,50%,${0.06+Math.cos(bloomOffset*1.2)*.02})`); g2.addColorStop(1,"transparent")
-      ctx.fillStyle=g2; ctx.fillRect(0,0,canvas.width,canvas.height)
-    }
-    const drawConnections = (parts: Particle[]) => {
-      const maxDist=110
-      for (let i=0;i<parts.length;i++) for (let j=i+1;j<parts.length;j++) {
-        const dx=parts[i].x-parts[j].x, dy=parts[i].y-parts[j].y, dist=Math.sqrt(dx*dx+dy*dy)
-        if (dist<maxDist) {
-          ctx.save(); ctx.globalAlpha=(1-dist/maxDist)*0.1; ctx.strokeStyle="#c9a84c"; ctx.lineWidth=0.5
-          ctx.beginPath(); ctx.moveTo(parts[i].x,parts[i].y); ctx.lineTo(parts[j].x,parts[j].y); ctx.stroke(); ctx.restore()
-        }
+    const pts=Array.from({length:45},()=>new P())
+    const render=()=>{
+      ctx.clearRect(0,0,canvas.width,canvas.height)
+      const bg=ctx.createLinearGradient(0,0,canvas.width,canvas.height)
+      bg.addColorStop(0,"#f5f3ff"); bg.addColorStop(.5,"#fefcf3"); bg.addColorStop(1,"#f0f4ff")
+      ctx.fillStyle=bg; ctx.fillRect(0,0,canvas.width,canvas.height)
+      for(let i=0;i<pts.length;i++)for(let j=i+1;j<pts.length;j++){
+        const dx=pts[i].x-pts[j].x,dy=pts[i].y-pts[j].y,d=Math.sqrt(dx*dx+dy*dy)
+        if(d<85){ctx.save();ctx.globalAlpha=(1-d/85)*.04;ctx.strokeStyle="#c9a84c";ctx.lineWidth=.4;ctx.beginPath();ctx.moveTo(pts[i].x,pts[i].y);ctx.lineTo(pts[j].x,pts[j].y);ctx.stroke();ctx.restore()}
       }
-    }
-    const render = () => {
-      ctx.clearRect(0,0,canvas.width,canvas.height); ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,canvas.width,canvas.height)
-      drawOrnatePattern(); drawBlooms()
-      particles.forEach(p=>p.update()); drawConnections(particles); particles.forEach(p=>p.draw())
-      animationId = requestAnimationFrame(render)
+      pts.forEach(p=>{p.update();p.draw()})
+      id=requestAnimationFrame(render)
     }
     render()
-    return () => { cancelAnimationFrame(animationId); window.removeEventListener("resize",resize) }
-  }, [])
-  return <canvas ref={canvasRef} className="fixed inset-0 w-full h-full" style={{ zIndex:0 }} />
+    return()=>{cancelAnimationFrame(id);window.removeEventListener("resize",resize)}
+  },[])
+  return <canvas ref={canvasRef} style={{position:"fixed",inset:0,width:"100%",height:"100%",zIndex:0}}/>
 }
 
-/* ── Login Page ──────────────────────────────────────────── */
 export default function LoginPage() {
-  const [email, setEmail]       = useState("")
+  const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [error, setError]       = useState<string | null>(null)
-  const [loading, setLoading]   = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
   const router = useRouter()
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError(null)
-    setLoading(true)
-
+    setError(null); setLoading(true)
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-
     setLoading(false)
-    if (error) {
-      setError("Invalid email or password. Please try again.")
-      return
-    }
-const { data: { session } } = await supabase.auth.getSession()
-if (session) await recordAuditEvent("LOGIN", email)
+    if (error) { setError("Invalid email or password. Please try again."); return }
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session) await recordAuditEvent("LOGIN", email)
     router.push("/dashboard")
   }
 
   return (
-    <div className="min-h-screen relative overflow-hidden" style={{ fontFamily:"'DM Sans',sans-serif", background:"#ffffff" }}>
+    <div style={{ fontFamily:"'DM Sans',sans-serif", minHeight:"100vh", display:"flex", flexDirection:"column" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600&display=swap');
-        .royal-title { font-family:'Playfair Display',serif; }
-        .royal-gradient-text { background:linear-gradient(135deg,#1a2e6e 0%,#4c1d95 60%,#1a2e6e 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
-        .gold-shimmer { background:linear-gradient(90deg,#b8860b,#f5d06e,#c9a84c,#f5d06e,#b8860b); background-size:200% auto; -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; animation:shimmer 4s linear infinite; }
+        @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500;600;700&display=swap');
+
+        @keyframes fadeUp { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
         @keyframes shimmer { 0%{background-position:-200% center} 100%{background-position:200% center} }
-        .btn-royal { background:linear-gradient(135deg,#1a2e6e,#4c1d95); color:#fff; box-shadow:0 4px 20px rgba(26,46,110,0.3); transition:all 0.2s; }
-        .btn-royal:hover { box-shadow:0 8px 30px rgba(26,46,110,0.45); transform:translateY(-1px); }
-        .btn-royal:disabled { opacity:0.7; cursor:not-allowed; transform:none; }
-        .header-bar { border-bottom:1px solid rgba(201,168,76,0.2); background:rgba(255,255,255,0.92); backdrop-filter:blur(20px); }
-        .royal-card { background:rgba(255,255,255,0.92); backdrop-filter:blur(24px); border:1px solid rgba(201,168,76,0.35); box-shadow:0 8px 50px rgba(26,46,110,0.1),0 1px 0 rgba(201,168,76,0.5) inset; }
-        .gold-divider { height:1.5px; background:linear-gradient(90deg,transparent,#c9a84c,#f5d06e,#c9a84c,transparent); border:none; margin:0; }
+        @keyframes spin { to{transform:rotate(360deg)} }
+        @keyframes glow { 0%,100%{box-shadow:0 0 0 0 rgba(201,168,76,.3)} 50%{box-shadow:0 0 0 6px rgba(201,168,76,0)} }
+
+        .d1{animation:fadeUp .55s ease .0s both}
+        .d2{animation:fadeUp .55s ease .08s both}
+        .d3{animation:fadeUp .55s ease .16s both}
+        .d4{animation:fadeUp .55s ease .24s both}
+        .d5{animation:fadeUp .55s ease .32s both}
+        .d6{animation:fadeUp .55s ease .40s both}
+
+        .shimmer-text {
+          background:linear-gradient(90deg,#b8860b,#f5d06e,#c9a84c,#f5d06e,#b8860b);
+          background-size:200% auto;
+          -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+          animation:shimmer 4s linear infinite;
+        }
+
+        .login-input {
+          width:100%;padding:13px 16px 13px 48px;border-radius:14px;
+          border:1.5px solid rgba(201,168,76,0.22);
+          background:rgba(255,255,255,0.85);
+          font-size:14px;font-family:inherit;color:#1f2937;
+          outline:none;transition:all .2s;box-sizing:border-box;
+          backdrop-filter:blur(8px);
+        }
+        .login-input:focus {
+          border-color:rgba(26,46,110,0.5);
+          background:#fff;
+          box-shadow:0 0 0 4px rgba(26,46,110,0.07);
+        }
+        .login-input::placeholder { color:#b0b0b0; }
+        .login-input-pr { padding-right:48px; }
+
+        .field-icon {
+          position:absolute;left:15px;top:50%;transform:translateY(-50%);
+          width:17px;height:17px;pointer-events:none;transition:color .2s;
+          color:#c4c4c4;
+        }
+        .login-input:focus ~ .field-icon-label .field-icon { color:#1a2e6e; }
+
+        .eye-toggle {
+          position:absolute;right:14px;top:50%;transform:translateY(-50%);
+          background:none;border:none;cursor:pointer;color:#b0b0b0;
+          display:flex;align-items:center;padding:0;transition:color .2s;
+        }
+        .eye-toggle:hover { color:#1a2e6e; }
+
+        .btn-signin {
+          width:100%;padding:15px;border-radius:14px;border:none;cursor:pointer;
+          background:linear-gradient(135deg,#1a2e6e 0%,#3730a3 50%,#4c1d95 100%);
+          color:#fff;font-size:15px;font-weight:700;font-family:inherit;
+          display:flex;align-items:center;justify-content:center;gap:8px;
+          box-shadow:0 8px 28px rgba(26,46,110,0.32);
+          transition:all .22s;
+        }
+        .btn-signin:hover:not(:disabled) {
+          box-shadow:0 12px 40px rgba(26,46,110,0.48);
+          transform:translateY(-2px);
+        }
+        .btn-signin:active:not(:disabled) { transform:translateY(0); }
+        .btn-signin:disabled { opacity:.65;cursor:not-allowed;transform:none; }
+
+        .spin { animation:spin .75s linear infinite; }
+
+        .back-btn {
+          display:inline-flex;align-items:center;gap:5px;text-decoration:none;
+          font-size:13px;font-weight:600;color:#6b7280;
+          border:1.5px solid rgba(0,0,0,0.1);border-radius:10px;
+          padding:7px 16px;transition:all .18s;background:rgba(255,255,255,0.7);
+        }
+        .back-btn:hover { color:#1a2e6e;border-color:rgba(26,46,110,0.25);background:#fff; }
       `}</style>
 
-      <ParticleCanvas />
+      <ParticleCanvas/>
 
       {/* Header */}
-      <header className="header-bar relative z-10">
-        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl" style={{ background:"linear-gradient(135deg,#1a2e6e,#4c1d95)", boxShadow:"0 4px 14px rgba(26,46,110,0.3)" }}>
-              <FileSearch className="size-5 text-yellow-300" />
+      <header style={{ position:"relative",zIndex:10,height:"64px",display:"flex",alignItems:"center", borderBottom:"1px solid rgba(201,168,76,0.12)",background:"rgba(255,255,255,0.82)",backdropFilter:"blur(20px)" }}>
+        <div style={{ maxWidth:"1200px",margin:"0 auto",padding:"0 24px",width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between" }}>
+          <Link href="/" style={{ display:"flex",alignItems:"center",gap:"10px",textDecoration:"none" }}>
+            <div style={{ padding:"8px",borderRadius:"11px",background:"linear-gradient(135deg,#1a2e6e,#4c1d95)",boxShadow:"0 3px 10px rgba(26,46,110,0.25)" }}>
+              <FileSearch style={{ width:"16px",height:"16px",color:"#fbbf24" }}/>
             </div>
-            <div className="flex flex-col">
-              <span className="royal-title text-xl font-black tracking-wide royal-gradient-text">AICS</span>
-              <span className="text-xs tracking-widest uppercase hidden sm:block" style={{ color:"#92400e", letterSpacing:"0.18em", fontSize:"10px" }}>PDF Search Engine</span>
+            <div>
+              <div style={{ fontFamily:"'Instrument Serif',Georgia,serif",fontSize:"18px",background:"linear-gradient(135deg,#1a2e6e,#4c1d95)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",lineHeight:1.1 }}>AICS</div>
+              <div style={{ fontSize:"8.5px",fontWeight:700,letterSpacing:"0.2em",color:"#92400e",textTransform:"uppercase" }}>PDF Search Engine</div>
             </div>
           </Link>
-          <Link href="/" className="btn-royal rounded-xl px-7 py-2.5 text-sm font-semibold">Back to Home</Link>
+          <Link href="/" className="back-btn">← Back</Link>
         </div>
       </header>
 
       {/* Main */}
-      <main className="relative z-10 mx-auto max-w-7xl px-6 py-12 md:py-20">
-        <div className="flex items-center justify-center min-h-[calc(100vh-16rem)]">
-          <div className="w-full max-w-md">
-            <div className="relative">
-              <div className="h-1 w-full rounded-t-2xl" style={{ background:"linear-gradient(90deg,#1a2e6e,#c9a84c,#f5d06e,#c9a84c,#4c1d95)" }} />
-              <div className="royal-card rounded-b-2xl rounded-tr-2xl p-8 md:p-10">
-                <div className="text-center mb-8">
-                  <h1 className="royal-title text-3xl font-black mb-2 royal-gradient-text">Welcome Back</h1>
-                  <p className="text-sm" style={{ color:"#6b7280" }}>Sign in to access your PDF search workspace</p>
+      <main style={{ flex:1,position:"relative",zIndex:10,display:"flex",alignItems:"center",justifyContent:"center",padding:"32px 16px" }}>
+        <div style={{ width:"100%",maxWidth:"420px" }}>
+
+          {/* Logo mark */}
+          <div className="d1" style={{ display:"flex",flexDirection:"column",alignItems:"center",marginBottom:"28px" }}>
+            <div style={{ width:"56px",height:"56px",borderRadius:"18px",background:"linear-gradient(135deg,#1a2e6e,#4c1d95)",boxShadow:"0 8px 28px rgba(26,46,110,0.3)",display:"flex",alignItems:"center",justifyContent:"center",marginBottom:"14px",animation:"glow 3s ease-in-out infinite" }}>
+              <FileSearch style={{ width:"26px",height:"26px",color:"#fbbf24" }}/>
+            </div>
+            <h1 style={{ fontFamily:"'Instrument Serif',Georgia,serif",fontSize:"28px",textAlign:"center",lineHeight:1.15,marginBottom:"6px" }}>
+              <span style={{ background:"linear-gradient(135deg,#1a2e6e,#4c1d95)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>Welcome back to </span>
+              <span className="shimmer-text">AICS</span>
+            </h1>
+            <p style={{ fontSize:"13px",color:"#9ca3af",textAlign:"center" }}>Sign in to access your compliance workspace</p>
+          </div>
+
+          {/* Card */}
+          <div className="d2" style={{ borderRadius:"24px",overflow:"hidden",background:"rgba(255,255,255,0.92)",border:"1px solid rgba(201,168,76,0.25)",boxShadow:"0 20px 72px rgba(26,46,110,0.1),0 1px 0 rgba(201,168,76,0.35) inset",backdropFilter:"blur(24px)" }}>
+
+            {/* Accent bar */}
+            <div style={{ height:"3px",background:"linear-gradient(90deg,#1a2e6e,#c9a84c,#f5d06e,#c9a84c,#4c1d95)" }}/>
+
+            <div style={{ padding:"32px 32px 36px" }}>
+              <form onSubmit={handleSignIn} style={{ display:"flex",flexDirection:"column",gap:"20px" }}>
+
+                {/* Email */}
+                <div className="d3">
+                  <label style={{ display:"block",fontSize:"12px",fontWeight:700,color:"#374151",marginBottom:"8px",letterSpacing:"0.03em" }}>
+                    Email Address
+                  </label>
+                  <div style={{ position:"relative", display:"flex", alignItems:"center" }}>
+                    <Mail style={{ position:"absolute",left:"15px",zIndex:2,width:"17px",height:"17px",color: email ? "#1a2e6e" : "#c4c4c4",transition:"color .2s",pointerEvents:"none",flexShrink:0 }}/>
+                    <input
+                      type="email" required value={email}
+                      onChange={e=>setEmail(e.target.value)}
+                      placeholder="you@yourcompany.com"
+                      className="login-input"
+                    />
+                  </div>
                 </div>
 
-                <form className="space-y-6" onSubmit={handleSignIn}>
-                  {/* Email */}
-                  <div className="space-y-2">
-                    <label htmlFor="email" className="block text-sm font-medium" style={{ color:"#374151" }}>Email Address</label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <Mail className="size-5" style={{ color:"#9ca3af" }} />
-                      </div>
-                      <input id="email" type="email" required value={email} onChange={e=>setEmail(e.target.value)}
-                        placeholder="Enter your email"
-                        className="w-full rounded-xl px-4 py-3 pl-12 text-sm outline-none transition-all"
-                        style={{ background:"#f8f7ff", border:"1px solid rgba(201,168,76,0.28)", color:"#1f2937" }} />
-                    </div>
+                {/* Password */}
+                <div className="d4">
+                  <label style={{ display:"block",fontSize:"12px",fontWeight:700,color:"#374151",marginBottom:"8px",letterSpacing:"0.03em" }}>
+                    Password
+                  </label>
+                  <div style={{ position:"relative", display:"flex", alignItems:"center" }}>
+                    <Lock style={{ position:"absolute",left:"15px",zIndex:2,width:"17px",height:"17px",color: password ? "#1a2e6e" : "#c4c4c4",transition:"color .2s",pointerEvents:"none",flexShrink:0 }}/>
+                    <input
+                      type={showPassword ? "text" : "password"} required value={password}
+                      onChange={e=>setPassword(e.target.value)}
+                      placeholder="Enter your password"
+                      className="login-input login-input-pr"
+                    />
+                    <button type="button" className="eye-toggle" onClick={()=>setShowPassword(p=>!p)} aria-label={showPassword?"Hide":"Show"}>
+                      {showPassword ? <EyeOff style={{width:"17px",height:"17px"}}/> : <Eye style={{width:"17px",height:"17px"}}/>}
+                    </button>
                   </div>
+                </div>
 
-                  {/* Password */}
-                  <div className="space-y-2">
-                    <label htmlFor="password" className="block text-sm font-medium" style={{ color:"#374151" }}>Password</label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <Lock className="size-5" style={{ color:"#9ca3af" }} />
-                      </div>
-                      <input id="password" type="password" required value={password} onChange={e=>setPassword(e.target.value)}
-                        placeholder="Enter your password"
-                        className="w-full rounded-xl px-4 py-3 pl-12 text-sm outline-none transition-all"
-                        style={{ background:"#f8f7ff", border:"1px solid rgba(201,168,76,0.28)", color:"#1f2937" }} />
-                    </div>
+                {/* Error */}
+                {error && (
+                  <div style={{ borderRadius:"12px",padding:"12px 16px",fontSize:"13px",background:"#fef2f2",color:"#b91c1c",border:"1px solid #fecaca",display:"flex",alignItems:"center",gap:"8px",lineHeight:1.5 }}>
+                    <span>⚠</span>{error}
                   </div>
+                )}
 
-                  {/* Remember + Forgot */}
-                  <div className="flex items-center justify-between">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" className="w-4 h-4 rounded" style={{ accentColor:"#1a2e6e" }} />
-                      <span className="text-sm" style={{ color:"#6b7280" }}>Remember me</span>
-                    </label>
-                    <Link href="/forgot-password" className="text-sm font-medium" style={{ color:"#1a2e6e" }}>Forgot password?</Link>
-                  </div>
+                {/* Gold divider */}
+                <div className="d5" style={{ height:"1px",background:"linear-gradient(90deg,transparent,rgba(201,168,76,0.35),transparent)" }}/>
 
-                  {/* Error message */}
-                  {error && (
-                    <div className="rounded-xl px-4 py-3 text-sm" style={{ background:"#fef2f2", color:"#dc2626", border:"1px solid #fecaca" }}>
-                      {error}
-                    </div>
+                {/* Submit */}
+                <button type="submit" disabled={loading} className="btn-signin d6">
+                  {loading ? (
+                    <>
+                      <svg className="spin" style={{width:"17px",height:"17px",flexShrink:0}} viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.25)" strokeWidth="3"/>
+                        <path d="M12 2a10 10 0 0 1 10 10" stroke="white" strokeWidth="3" strokeLinecap="round"/>
+                      </svg>
+                      Signing in…
+                    </>
+                  ) : (
+                    <>Sign In <ArrowRight style={{width:"17px",height:"17px"}}/></>
                   )}
+                </button>
 
-                  <hr className="gold-divider" />
-
-                  <button type="submit" disabled={loading} className="btn-royal group w-full rounded-xl px-6 py-3.5 text-base font-semibold cursor-pointer">
-                    <span className="flex items-center justify-center gap-2">
-                      {loading ? "Signing in…" : "Sign In"}
-                      <ArrowRight className="size-4 group-hover:translate-x-1 transition-transform" />
-                    </span>
-                  </button>
-                </form>
-              </div>
+              </form>
             </div>
           </div>
+
+          {/* Below card trust line */}
+          <div className="d6" style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:"16px",marginTop:"20px" }}>
+            {["🔒 TLS 1.3 encrypted","🚫 Zero data stored","⚡ In-memory only"].map(t=>(
+              <span key={t} style={{ fontSize:"11px",color:"#b0b0b0",fontWeight:500 }}>{t}</span>
+            ))}
+          </div>
+
         </div>
       </main>
-
-      {/* Footer */}
-      <footer className="relative z-10 py-8 mt-8" style={{ borderTop:"1px solid rgba(201,168,76,0.22)", background:"rgba(255,255,255,0.97)" }}>
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <FileSearch className="size-4" style={{ color:"#1a2e6e" }} />
-              <span className="royal-title text-sm font-bold royal-gradient-text">© 2026 AICS.</span>
-              <span className="text-sm" style={{ color:"#9ca3af" }}>All rights reserved.</span>
-            </div>
-            <div className="flex items-center gap-6 text-sm font-medium" style={{ color:"#9ca3af" }}>
-              {["Privacy","Terms","Contact"].map(l=>(
-                <Link key={l} href="#" className="transition-colors hover:text-amber-700">{l}</Link>
-              ))}
-            </div>
-          </div>
-        </div>
-      </footer>
     </div>
   )
 }
