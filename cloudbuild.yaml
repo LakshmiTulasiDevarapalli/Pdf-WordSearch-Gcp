@@ -42,19 +42,27 @@ steps:
           -t ${_AR_HOSTNAME}/${_AR_PROJECT_NUMBER}/${_AR_REPOSITORY}/pdf-word-search-app:latest \
           -f Dockerfile .
 
-  # Step 3: Push commit SHA tag
+  # Step 3: Configure Docker to authenticate with Artifact Registry
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        gcloud auth configure-docker ${_AR_HOSTNAME} --quiet
+
+  # Step 4: Push commit SHA tag
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
       - '${_AR_HOSTNAME}/${_AR_PROJECT_NUMBER}/${_AR_REPOSITORY}/pdf-word-search-app:${COMMIT_SHA}'
 
-  # Step 4: Push latest tag
+  # Step 5: Push latest tag
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
       - '${_AR_HOSTNAME}/${_AR_PROJECT_NUMBER}/${_AR_REPOSITORY}/pdf-word-search-app:latest'
 
-  # Step 5: Deploy to Cloud Run
+  # Step 6: Deploy to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: 'gcloud'
     args:
@@ -81,7 +89,7 @@ steps:
       - '--update-secrets'
       - 'NEXT_PUBLIC_SUPABASE_ANON_KEY=pdf-supabase-anon-key:latest,SUPABASE_SERVICE_ROLE_KEY=pdf-supabase-service-role-key:latest'
 
-  # Step 6: Health Check
+  # Step 7: Health Check
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: 'sh'
     args:
