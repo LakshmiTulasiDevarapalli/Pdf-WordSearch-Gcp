@@ -3,7 +3,7 @@
 // Updates a user's profile fields using the service role key (bypasses RLS)
 
 import { NextRequest, NextResponse } from "next/server"
-import { supabaseAdmin } from "@/lib/supabase-admin"
+import { getAdminClient } from "@/lib/supabase-admin"
 
 export async function PATCH(req: NextRequest) {
   try {
@@ -14,7 +14,8 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "User id is required." }, { status: 400 })
     }
 
-    const { error } = await supabaseAdmin
+    // 1. Update public.users
+    const { error: publicError } = await getAdminClient()
       .from("users")
       .update({
         full_name,
@@ -24,8 +25,22 @@ export async function PATCH(req: NextRequest) {
       })
       .eq("id", id)
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
+    if (publicError) {
+      return NextResponse.json({ error: publicError.message }, { status: 400 })
+    }
+
+    // 2. Sync auth.users user_metadata so both tables stay in sync
+    const { error: authError } = await getAdminClient().auth.admin.updateUserById(id, {
+      user_metadata: {
+        full_name,
+        role,
+        department: department ?? null,
+        phone: phone ?? null,
+      },
+    })
+
+    if (authError) {
+      return NextResponse.json({ error: authError.message }, { status: 400 })
     }
 
     return NextResponse.json({ success: true })

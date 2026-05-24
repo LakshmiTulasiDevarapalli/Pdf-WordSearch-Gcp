@@ -50,9 +50,18 @@ export default function UsersPage() {
 
   const handleDelete = async (id: string) => {
     setDeleting(true)
-    const { error } = await supabase.from("users").delete().eq("id", id)
-    if (error) setError(error.message)
-    else { setSuccess("User deleted."); fetchUsers() }
+    try {
+      const res = await fetch("/api/admin/delete-user", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      })
+      const data = await res.json()
+      if (!res.ok) setError(data.error || "Failed to delete user.")
+      else { setSuccess("User deleted."); fetchUsers() }
+    } catch (err) {
+      setError("Unexpected error deleting user.")
+    }
     setDeleteConfirmId(null)
     setDeleting(false)
   }

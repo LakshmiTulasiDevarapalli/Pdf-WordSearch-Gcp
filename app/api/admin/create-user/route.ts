@@ -3,7 +3,7 @@
 // Call this from your Users admin page when adding a new user
 
 import { NextRequest, NextResponse } from "next/server"
-import { supabaseAdmin } from "@/lib/supabase-admin"
+import { getAdminClient } from "@/lib/supabase-admin"
 
 // Password validation rules
 const PASSWORD_RULES = {
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
 
     // Create the user in auth.users via Admin API
     // The trigger `on_auth_user_created` will automatically insert into public.users
-    const { data, error } = await supabaseAdmin.auth.admin.createUser({
+    const { data, error } = await getAdminClient().auth.admin.createUser({
       email,
       password: finalPassword,
       email_confirm: true, // skip confirmation email — user is created by admin
@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Update public.users with extra fields the trigger may not have set
-    await supabaseAdmin
+    await getAdminClient()
       .from("users")
       .update({ department: department ?? null, phone: phone ?? null })
       .eq("id", data.user.id)

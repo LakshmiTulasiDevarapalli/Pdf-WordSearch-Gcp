@@ -62,6 +62,16 @@ export async function POST(request: NextRequest) {
       const hasMedContent = /tablet|capsule|mg|ml|medication|dose|oral|injection|cream|patch|solution|syrup|insulin|infusion/i.test(normalizedNote)
       if (!hasMedContent) continue
 
+      // --- Exclude sliding scale notes ---
+      // Sliding scale entries are protocol-driven (not true duplicates) and should be filtered out.
+      const isSlidingScale = /sliding\s+scale/i.test(normalizedNote)
+      if (isSlidingScale) continue
+
+      // --- Exclude "as needed" (PRN) notes ---
+      // "As needed" medication entries are given on-demand and are not true duplicates.
+      const isAsNeeded = /\bas\s+needed\b/i.test(normalizedNote)
+      if (isAsNeeded) continue
+
       const noteKey = normalizedNote.substring(0, 80)
       const resKey = block.residentName === "N/A" ? "unknown" : block.residentName
       const key = resKey + "|||" + noteKey
