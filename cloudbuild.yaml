@@ -12,20 +12,19 @@ steps:
         pnpm install --frozen-lockfile
         echo "Done"
 
-  # Step 1: Build Docker image
-  - name: 'gcr.io/cloud-builders/docker'
+  # Step 1: Build Docker image (fetch secret inline)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
+        ANON_KEY=$(gcloud secrets versions access latest --secret=pdf-supabase-anon-key --project=${_AR_PROJECT_NUMBER})
         docker build --no-cache \
           --build-arg NEXT_PUBLIC_SUPABASE_URL=${_SUPABASE_URL} \
-          --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=$$NEXT_PUBLIC_SUPABASE_ANON_KEY \
+          --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY \
           -t ${_AR_HOSTNAME}/${_AR_PROJECT_NUMBER}/${_AR_REPOSITORY}/pdf-word-search-app:${COMMIT_SHA} \
           -t ${_AR_HOSTNAME}/${_AR_PROJECT_NUMBER}/${_AR_REPOSITORY}/pdf-word-search-app:latest \
           -f Dockerfile .
-    secretEnv:
-      - 'NEXT_PUBLIC_SUPABASE_ANON_KEY'
 
   # Step 2: Push commit SHA tag
   - name: 'gcr.io/cloud-builders/docker'
@@ -88,11 +87,6 @@ steps:
 images:
   - '${_AR_HOSTNAME}/${_AR_PROJECT_NUMBER}/${_AR_REPOSITORY}/pdf-word-search-app:${COMMIT_SHA}'
   - '${_AR_HOSTNAME}/${_AR_PROJECT_NUMBER}/${_AR_REPOSITORY}/pdf-word-search-app:latest'
-
-availableSecrets:
-  secretManager:
-    - versionName: projects/${_AR_PROJECT_NUMBER}/secrets/pdf-supabase-anon-key/versions/latest
-      env: 'NEXT_PUBLIC_SUPABASE_ANON_KEY'
 
 substitutions:
   _AR_HOSTNAME: 'us-east4-docker.pkg.dev'
