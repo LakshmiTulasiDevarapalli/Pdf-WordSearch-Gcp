@@ -106,7 +106,7 @@ images:
 
 substitutions:
   _AR_HOSTNAME: 'us-east4-docker.pkg.dev'
-  _AR_PROJECT_NUMBER: '160722596615'
+  _AR_PROJECT_NUMBER: 'project-ab8fddd6-dc50-458a-a4e'
   _AR_REPOSITORY: 'cloud-run-source-deploy'
   _DEPLOY_REGION: 'us-east4'
   _SUPABASE_URL: 'https://nqbrbsjlqwwelbqiwkab.supabase.co'
