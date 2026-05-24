@@ -401,6 +401,18 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
           }
         }
 
+        // --- Paragraph-level exclusion for the CUT keyword ---
+        // Skip paragraphs that contain "Acute", "Subcutaneous", or "XEROSIS CUTIS".
+        if (keywordLower === "cut") {
+          if (
+            /\bacute\b/i.test(block.paragraphText) ||
+            /subcutaneous/i.test(block.paragraphText) ||
+            /xerosis\s+cutis/i.test(block.paragraphText)
+          ) {
+            continue
+          }
+        }
+
         // --- Numbered list exclusion (applies to ALL keywords) ---
         // Reject any occurrence whose position falls inside a numbered list item
         // e.g. "1) The resident was hit" or "2. Verbal abuse noted" — the keyword
