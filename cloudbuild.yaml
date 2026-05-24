@@ -21,8 +21,8 @@ steps:
         docker build --no-cache \
           --build-arg NEXT_PUBLIC_SUPABASE_URL=${_SUPABASE_URL} \
           --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=$$NEXT_PUBLIC_SUPABASE_ANON_KEY \
-          -t ${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/pdf-word-search-app:${COMMIT_SHA} \
-          -t ${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/pdf-word-search-app:latest \
+          -t ${_AR_HOSTNAME}/${_AR_PROJECT_NUMBER}/${_AR_REPOSITORY}/pdf-word-search-app:${COMMIT_SHA} \
+          -t ${_AR_HOSTNAME}/${_AR_PROJECT_NUMBER}/${_AR_REPOSITORY}/pdf-word-search-app:latest \
           -f Dockerfile .
     secretEnv:
       - 'NEXT_PUBLIC_SUPABASE_ANON_KEY'
@@ -31,13 +31,13 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/pdf-word-search-app:${COMMIT_SHA}'
+      - '${_AR_HOSTNAME}/${_AR_PROJECT_NUMBER}/${_AR_REPOSITORY}/pdf-word-search-app:${COMMIT_SHA}'
 
   # Step 3: Push latest tag
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/pdf-word-search-app:latest'
+      - '${_AR_HOSTNAME}/${_AR_PROJECT_NUMBER}/${_AR_REPOSITORY}/pdf-word-search-app:latest'
 
   # Step 4: Deploy to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -47,7 +47,7 @@ steps:
       - 'deploy'
       - 'pdf-word-search-app'
       - '--image'
-      - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/pdf-word-search-app:${COMMIT_SHA}'
+      - '${_AR_HOSTNAME}/${_AR_PROJECT_NUMBER}/${_AR_REPOSITORY}/pdf-word-search-app:${COMMIT_SHA}'
       - '--region'
       - '${_DEPLOY_REGION}'
       - '--platform'
@@ -86,17 +86,17 @@ steps:
         echo "Deployment successful! Live at: $svc_url"
 
 images:
-  - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/pdf-word-search-app:${COMMIT_SHA}'
-  - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/pdf-word-search-app:latest'
+  - '${_AR_HOSTNAME}/${_AR_PROJECT_NUMBER}/${_AR_REPOSITORY}/pdf-word-search-app:${COMMIT_SHA}'
+  - '${_AR_HOSTNAME}/${_AR_PROJECT_NUMBER}/${_AR_REPOSITORY}/pdf-word-search-app:latest'
 
 availableSecrets:
   secretManager:
-    - versionName: projects/${_AR_PROJECT_ID}/secrets/pdf-supabase-anon-key/versions/latest
+    - versionName: projects/${_AR_PROJECT_NUMBER}/secrets/pdf-supabase-anon-key/versions/latest
       env: 'NEXT_PUBLIC_SUPABASE_ANON_KEY'
 
 substitutions:
   _AR_HOSTNAME: 'us-east4-docker.pkg.dev'
-  _AR_PROJECT_ID: 'project-ab8fddd6-dc50-458a-a4e'
+  _AR_PROJECT_NUMBER: '160722596615'
   _AR_REPOSITORY: 'cloud-run-source-deploy'
   _DEPLOY_REGION: 'us-east4'
   _SUPABASE_URL: 'https://nqbrbsjlqwwelbqiwkab.supabase.co'
