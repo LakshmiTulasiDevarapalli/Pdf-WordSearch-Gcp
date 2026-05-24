@@ -12,7 +12,7 @@ steps:
         pnpm install --frozen-lockfile
         echo "Done"
 
-  # Step 1: Fetch secret and save to workspace file
+  # Step 1: Fetch secrets and save to workspace files
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: 'bash'
     args:
@@ -22,7 +22,11 @@ steps:
           --secret=pdf-supabase-anon-key \
           --project=${_AR_PROJECT_NUMBER} \
           > /workspace/anon_key.txt
-        echo "Secret fetched"
+        gcloud secrets versions access latest \
+          --secret=pdf-supabase-service-role-key \
+          --project=${_AR_PROJECT_NUMBER} \
+          > /workspace/service_role_key.txt
+        echo "Secrets fetched"
 
   # Step 2: Build Docker image reading secret from file
   - name: 'gcr.io/cloud-builders/docker'
@@ -33,6 +37,7 @@ steps:
         docker build --no-cache \
           --build-arg NEXT_PUBLIC_SUPABASE_URL=${_SUPABASE_URL} \
           --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="$(cat /workspace/anon_key.txt)" \
+          --build-arg SUPABASE_SERVICE_ROLE_KEY="$(cat /workspace/service_role_key.txt)" \
           -t ${_AR_HOSTNAME}/${_AR_PROJECT_NUMBER}/${_AR_REPOSITORY}/pdf-word-search-app:${COMMIT_SHA} \
           -t ${_AR_HOSTNAME}/${_AR_PROJECT_NUMBER}/${_AR_REPOSITORY}/pdf-word-search-app:latest \
           -f Dockerfile .
