@@ -63,6 +63,8 @@ const DEFAULT_KEYWORDS = [
   "LIGHTER",
   "SECURITY",
   "CUT",
+  "SLAP",
+  "FIGHT",
   // "ERROR",
   // "CODE",
   // "CHANGE",
