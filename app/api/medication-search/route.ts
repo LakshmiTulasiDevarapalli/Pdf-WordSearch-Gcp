@@ -198,7 +198,7 @@ function parsePDFIntoBlocks(text: string): NoteBlock[] {
     const rawSection = text.substring(effectiveDatePos, nextSectionStart)
 
     const typeMatchNoteText = rawSection.match(/Type:\s*([\s\S]+?Note\s+Text)\s*:/i)
-    const typeMatchGeneral = rawSection.match(/Type:\s*([^\n]+?)(?:\s{2,}|\bResident\b|Author:|Signature:|$)/i)
+    const typeMatchGeneral = rawSection.match(/Type:\s*(.+?)(?=\n|\r|Author:|Signature:|\s{3,}|$)/i)
     const typeRaw = typeMatchNoteText
       ? typeMatchNoteText[1].trim()
       : typeMatchGeneral ? typeMatchGeneral[1].trim() : ""
@@ -210,9 +210,19 @@ function parsePDFIntoBlocks(text: string): NoteBlock[] {
     if (!/default\s+pn\s+type\s+for\s+emar/i.test(type)) continue
 
     const noteTextMatch = rawSection.match(/Note\s+Text\s*:\s*([\s\S]+?)(?:\s*Author\s*:|Signature:|Page\s+\d+\s+of\s+\d+|$)/i)
-    const noteText = noteTextMatch
+    let noteText = noteTextMatch
       ? noteTextMatch[1].replace(/\s+/g, " ").trim()
       : ""
+
+    // Fallback: no "Note Text:" label in PDF — grab content directly after the Type line
+    if (!noteText || noteText.length < 5) {
+      const fallbackMatch = rawSection.match(
+        /Type:\s*Default\s+PN\s+Type\s+for\s+eMAR\s*([\s\S]+?)(?:Author\s*:|Signature:|Page\s+\d+\s+of\s+\d+|$)/i
+      )
+      if (fallbackMatch) {
+        noteText = fallbackMatch[1].replace(/\s+/g, " ").trim()
+      }
+    }
 
     if (!noteText || noteText.length < 5) continue
 
