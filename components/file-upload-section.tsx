@@ -66,6 +66,8 @@ const DEFAULT_KEYWORDS = [
   "SLAP",
   "FIGHT",
   "SPIT",
+  "KILL",
+  "INCOMPA"
   // "ERROR",
   // "CODE",
   // "CHANGE",
