@@ -415,20 +415,21 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
         }
 
         // --- Paragraph-level exclusion for the KILL keyword ---
-        // Skip paragraphs where every occurrence of "kill" is either:
+        // Skip paragraphs where every occurrence of "kill" (in any casing) is either:
         //   1. Part of "skill" or its variants (e.g. "skills", "skilled", "skillful"), or
-        //   2. A proper name — detected by the matched word starting with an uppercase letter
-        //      in the ORIGINAL (non-lowercased) text (e.g. "Killian", "Killebrew", "Killington").
-        // NOTE: We must match against block.paragraphText (original casing), NOT paragraphLower,
-        // because the uppercase check /^[A-Z]/ would never fire on a lowercased string.
+        //   2. Part of a known proper name that contains "kill" (e.g. "Killebrew", "Killian",
+        //      "Killington") — matched case-insensitively so KILLEBREW, Killebrew, killebrew
+        //      are all caught regardless of how pdfjs extracted the text casing.
+        // IMPORTANT: use /gi so uppercase names like "KILLEBREW" are included in the match list.
         if (keywordLower === "kill") {
-          const killMatchesOriginal = block.paragraphText.match(/kill\w*/gi) || []
-          const killMatchesForCase  = block.paragraphText.match(/kill\w*/g)  || []
-          const allAreExcluded =
-            killMatchesOriginal.length > 0 &&
-            killMatchesOriginal.every((m) => /^skill/i.test(m)) ||
-            killMatchesForCase.length > 0 &&
-            killMatchesForCase.every((m) => /^[A-Z]/.test(m))
+          const killMatches = block.paragraphText.match(/kill\w*/gi) || []
+          const allAreExcluded = killMatches.length > 0 && killMatches.every(
+            (m) =>
+              /^skill/i.test(m)     ||   // skill, skills, skilled, skillful …
+              /^killebrew/i.test(m) ||   // Killebrew, KILLEBREW, killebrew
+              /^killian/i.test(m)   ||   // Killian
+              /^killing(ton)?/i.test(m)  // Killington, Killing (place names)
+          )
           if (allAreExcluded) {
             continue
           }

@@ -39,7 +39,10 @@ const DEFAULT_KEYWORDS = [
   "PAIN",
   "FULL",
   "DNR",
-  "SMOK"
+  "SMOK",
+  "C/S",
+  "URINA",
+  "CUL"
 ]
 
 interface SearchResult {
