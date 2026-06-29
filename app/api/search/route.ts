@@ -382,6 +382,19 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
           }
         }
 
+        // --- Paragraph-level exclusion for the BREAK keyword ---
+        // Skip paragraphs where every occurrence of "break" is part of "breakfast", "breakthrough",
+        // or "breakdown" (all are common, benign words that should not trigger an incident alert).
+        if (keywordLower === "break") {
+          const breakMatches = block.paragraphText.match(/break\w*/gi) || []
+          const allAreExcluded = breakMatches.length > 0 && breakMatches.every(
+            (m) => /^breakfast/i.test(m) || /^breakthrough/i.test(m) || /^breakdown/i.test(m)
+          )
+          if (allAreExcluded) {
+            continue
+          }
+        }
+
         // --- Paragraph-level exclusion for the 1:1 keyword ---
         // Skip paragraphs that contain routine activity/stimulation template phrases.
         if (keywordLower === "1:1") {
@@ -397,6 +410,21 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
         // Skip paragraphs that contain "incidental finding" (a radiology/clinical report phrase).
         if (keywordLower === "find") {
           if (/incidental\s+finding/i.test(block.paragraphText)) {
+            continue
+          }
+        }
+
+        // --- Paragraph-level exclusion for the KILL keyword ---
+        // Skip paragraphs where every occurrence of "kill" is either:
+        //   1. Part of "skill" or its variants (e.g. "skills", "skilled", "skillful"), or
+        //   2. A proper name — detected by the matched word starting with an uppercase letter
+        //      (e.g. "Killian", "Killington") since names are capitalized in clinical notes.
+        if (keywordLower === "kill") {
+          const killMatchesOriginal = block.paragraphText.match(/kill\w*/g) || []
+          const allAreExcluded = killMatchesOriginal.length > 0 && killMatchesOriginal.every(
+            (m) => /^skill/i.test(m) || /^[A-Z]/.test(m)
+          )
+          if (allAreExcluded) {
             continue
           }
         }
