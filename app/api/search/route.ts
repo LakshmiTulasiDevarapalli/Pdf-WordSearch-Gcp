@@ -418,12 +418,17 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
         // Skip paragraphs where every occurrence of "kill" is either:
         //   1. Part of "skill" or its variants (e.g. "skills", "skilled", "skillful"), or
         //   2. A proper name — detected by the matched word starting with an uppercase letter
-        //      (e.g. "Killian", "Killington") since names are capitalized in clinical notes.
+        //      in the ORIGINAL (non-lowercased) text (e.g. "Killian", "Killebrew", "Killington").
+        // NOTE: We must match against block.paragraphText (original casing), NOT paragraphLower,
+        // because the uppercase check /^[A-Z]/ would never fire on a lowercased string.
         if (keywordLower === "kill") {
-          const killMatchesOriginal = block.paragraphText.match(/kill\w*/g) || []
-          const allAreExcluded = killMatchesOriginal.length > 0 && killMatchesOriginal.every(
-            (m) => /^skill/i.test(m) || /^[A-Z]/.test(m)
-          )
+          const killMatchesOriginal = block.paragraphText.match(/kill\w*/gi) || []
+          const killMatchesForCase  = block.paragraphText.match(/kill\w*/g)  || []
+          const allAreExcluded =
+            killMatchesOriginal.length > 0 &&
+            killMatchesOriginal.every((m) => /^skill/i.test(m)) ||
+            killMatchesForCase.length > 0 &&
+            killMatchesForCase.every((m) => /^[A-Z]/.test(m))
           if (allAreExcluded) {
             continue
           }
