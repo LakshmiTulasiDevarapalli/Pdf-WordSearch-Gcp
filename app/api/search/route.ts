@@ -385,7 +385,13 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
         // --- Paragraph-level exclusion for the BREAK keyword ---
         // Skip paragraphs where every occurrence of "break" is part of "breakfast", "breakthrough",
         // or "breakdown" (all are common, benign words that should not trigger an incident alert).
+        // Also skip paragraphs that contain the clinical phrase "break in skin integrity" (a
+        // routine skin-assessment term, not an incident).
         if (keywordLower === "break") {
+          if (/break\s+in\s+skin\s+integrity/i.test(block.paragraphText)) {
+            continue
+          }
+
           const breakMatches = block.paragraphText.match(/break\w*/gi) || []
           const allAreExcluded = breakMatches.length > 0 && breakMatches.every(
             (m) => /^breakfast/i.test(m) || /^breakthrough/i.test(m) || /^breakdown/i.test(m)
@@ -436,12 +442,13 @@ function searchPDFWithSpec(text: string, keywords: string[], numPages: number): 
         }
 
         // --- Paragraph-level exclusion for the CUT keyword ---
-        // Skip paragraphs that contain "Acute", "Subcutaneous", or "XEROSIS CUTIS".
+        // Skip paragraphs that contain "Acute", "Subcutaneous", "XEROSIS CUTIS", or "Cutaneous".
         if (keywordLower === "cut") {
           if (
             /\bacute\b/i.test(block.paragraphText) ||
             /subcutaneous/i.test(block.paragraphText) ||
-            /xerosis\s+cutis/i.test(block.paragraphText)
+            /xerosis\s+cutis/i.test(block.paragraphText) ||
+            /cutaneous/i.test(block.paragraphText)
           ) {
             continue
           }
