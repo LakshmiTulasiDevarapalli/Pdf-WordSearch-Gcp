@@ -21,12 +21,15 @@ interface SearchResult {
   location: string
   admissionDate: string
   effectiveDate: string
+  textPosition: number
 }
 
 interface OrderRow {
   residentName: string
   orderSummary: string
   orderStatus: string
+  admissionDate: string
+  effectiveDate: string
   textPosition: number
   pageNumber: number
 }
@@ -69,6 +72,8 @@ export async function POST(request: NextRequest) {
       console.log("[order] Sample rows (first 3):", rows.slice(0, 3).map(r => ({
         residentName: r.residentName,
         orderStatus: r.orderStatus,
+        admissionDate: r.admissionDate,
+        effectiveDate: r.effectiveDate,
         summaryPreview: r.orderSummary.substring(0, 80),
       })))
     }
@@ -100,6 +105,16 @@ export async function POST(request: NextRequest) {
 //      (not just at ^), using a global regex.
 //   3. When a resident token is found mid-line, everything between it and the
 //      next resident token (or status word) is the Order Summary.
+//
+// NOTE ON DATES: the raw block for each row typically contains one or two
+// dates after the status word (e.g. "Active 07/01/2026 07/01/2026 N") — a
+// created/order date and an effective/until date. These used to be stripped
+// out entirely when building orderSummary, which meant two rows that only
+// differed by date (e.g. a Discontinued order and its re-ordered Active
+// replacement) collapsed to byte-identical orderSummary strings. We now
+// capture those dates into admissionDate/effectiveDate before stripping them
+// from the summary, so downstream consumers (like the export route) have a
+// reliable way to tell such rows apart.
 // ---------------------------------------------------------------------------
 function parseOrderListingRows(text: string, numPages: number): OrderRow[] {
   const rows: OrderRow[] = []
@@ -112,6 +127,7 @@ function parseOrderListingRows(text: string, numPages: number): OrderRow[] {
 
   // Status values
   const statusPattern = /\b(Active|Completed|Discontinued)\b/i
+  const datePattern = /\d{1,2}\/\d{1,2}\/\d{4}/g
 
   // After matching all resident tokens globally across the whole text,
   // slice the text between consecutive tokens to get the order summary block.
@@ -133,6 +149,20 @@ function parseOrderListingRows(text: string, numPages: number): OrderRow[] {
     // Extract Order Status from the block
     const statusMatch = block.match(statusPattern)
     const orderStatus = statusMatch ? statusMatch[1] : "N/A"
+
+    // Extract the date(s) that follow the status word — typically an order
+    // date and an effective/until date, e.g. "Active 07/01/2026 07/01/2026 N".
+    // We only look at the portion of the block AFTER the status word so we
+    // don't accidentally pick up a date mentioned inside the order summary
+    // text itself (e.g. "until 07/02/2026 23:59" inside an X-ray order).
+    let admissionDate = ""
+    let effectiveDate = ""
+    if (statusMatch && statusMatch.index !== undefined) {
+      const afterStatus = block.substring(statusMatch.index + statusMatch[0].length)
+      const dateMatches = [...afterStatus.matchAll(datePattern)].map((m) => m[0])
+      admissionDate = dateMatches[0] || ""
+      effectiveDate = dateMatches[1] || dateMatches[0] || ""
+    }
 
     // Extract Order Summary:
     // Everything before the first status word, stripped of dates and flag chars
@@ -160,6 +190,8 @@ function parseOrderListingRows(text: string, numPages: number): OrderRow[] {
       residentName,
       orderSummary,
       orderStatus,
+      admissionDate,
+      effectiveDate,
       textPosition: match.index!,
       pageNumber,
     })
@@ -197,8 +229,9 @@ function searchOrderRows(rows: OrderRow[], keywords: string[]): SearchResult[] {
         orderStatus: row.orderStatus,
         matchedKeywords: [keyword],
         location: "",
-        admissionDate: "",
-        effectiveDate: "",
+        admissionDate: row.admissionDate,
+        effectiveDate: row.effectiveDate,
+        textPosition: row.textPosition,
       })
     }
   }
@@ -228,6 +261,20 @@ function findAllOccurrences(text: string, keyword: string): Array<{ index: numbe
 
 function isValidKeywordMatch(text: string, keyword: string, matchIndex: number): boolean {
   const keywordLower = keyword.toLowerCase()
+
+  // Special case: "RAY" is commonly written as a compound word "Xray"/"xray"
+  // in clinical notes, in addition to "X-ray" and "X ray". The normal
+  // word-boundary rule below would reject "xray" because the "x" immediately
+  // before "ray" is alphanumeric, indistinguishable from unrelated words like
+  // "array" or "betray". We can't tell those apart from character context
+  // alone, so we explicitly allow an "x"/"X" immediately before "ray" as a
+  // known-valid compound spelling, without loosening the boundary rule for
+  // any other keyword.
+  if (keywordLower === "ray" && matchIndex > 0) {
+    const charBefore = text[matchIndex - 1]
+    if (charBefore.toLowerCase() === "x") return true
+  }
+
   if (matchIndex > 0) {
     const charBefore = text[matchIndex - 1]
     const isAlphanumeric = /^[a-z0-9]+$/i.test(keywordLower)

@@ -21,6 +21,9 @@ interface OrderSearchResult {
   residentName: string
   orderStatus: string
   matchedKeywords?: string[]
+  admissionDate?: string
+  effectiveDate?: string
+  textPosition?: number
 }
 
 export async function POST(request: NextRequest) {
@@ -57,9 +60,22 @@ export async function POST(request: NextRequest) {
       ;(result.matchedKeywords || []).forEach((keyword) => {
         if (!resultsByKeyword.has(keyword)) resultsByKeyword.set(keyword, [])
         const existing = resultsByKeyword.get(keyword)!
-        const isDupe = existing.some(
-          (r) => r.paragraph === result.paragraph && r.residentName === result.residentName,
-        )
+
+        // IMPORTANT: source PDFs can legitimately contain two separate order
+        // rows for the same resident with byte-identical text, status, and
+        // dates (e.g. the same X-ray ordered twice on the same day). Content
+        // equality is therefore NOT a valid signal that two results are "the
+        // same" row — it's entirely possible for two genuinely distinct
+        // orders to read identically. The only reliable identity for a row
+        // is where it was found in the source document, so we dedupe on
+        // `textPosition` (each row's origin offset in the extracted text) if
+        // present, falling back to array identity (never dupe) when it's
+        // missing. This guards only against the same row being pushed twice
+        // (e.g. a re-submitted request), not against distinct rows that
+        // happen to share identical wording.
+        const isDupe =
+          result.textPosition !== undefined &&
+          existing.some((r) => r.textPosition === result.textPosition)
         if (!isDupe) existing.push(result)
       })
     })
