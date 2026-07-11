@@ -115,15 +115,22 @@ export async function POST(request: NextRequest) {
 // capture those dates into admissionDate/effectiveDate before stripping them
 // from the summary, so downstream consumers (like the export route) have a
 // reliable way to tell such rows apart.
+//
+// NOTE ON CASE: resident names in the source PDF are NOT guaranteed to be
+// ALL CAPS — e.g. "Brown, Irma (4178)" (Title Case) appears alongside
+// "CRAIG, KELLY DENISE (6032)" (ALL CAPS) in the same document. The pattern
+// below accepts either casing as long as each name segment starts with an
+// uppercase letter, so both styles are matched.
 // ---------------------------------------------------------------------------
 function parseOrderListingRows(text: string, numPages: number): OrderRow[] {
   const rows: OrderRow[] = []
 
-  // Resident name pattern: "LASTNAME, FIRSTNAME (NNNNN)"
-  // Requires at least 2 uppercase letters before the comma so that single-char
-  // supply flags (Y / N) from the previous row cannot be captured as the
-  // start of a resident name.
-  const residentPattern = /(?<![A-Z])([A-Z]{2,}[A-Z\s,'.-]*,\s*[A-Z][A-Z\s,'.-]+\(\d+\))/g
+  // Resident name pattern: "Lastname, Firstname (NNNNN)" — accepts both
+  // ALL-CAPS ("CRAIG, KELLY DENISE") and Title Case ("Brown, Irma") names.
+  // Each name segment must start with an uppercase letter; the rest of the
+  // segment may be upper- or lower-case. Requires the trailing "(digits)".
+  const residentPattern =
+    /(?<![A-Za-z])([A-Z][A-Za-z'’.-]+(?:\s+[A-Za-z'’.-]+)*,\s*[A-Z][A-Za-z'’.-]*(?:\s+[A-Za-z'’.-]+)*\s*\(\d+\))/g
 
   // Status values
   const statusPattern = /\b(Active|Completed|Discontinued)\b/i
