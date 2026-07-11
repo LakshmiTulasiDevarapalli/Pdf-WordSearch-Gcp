@@ -72,6 +72,14 @@ export async function POST(request: NextRequest) {
       const isAsNeeded = /\bas\s+needed\b/i.test(normalizedNote)
       if (isAsNeeded) continue
 
+      // --- Exclude conditional "hold" instructions ---
+      // e.g. "Hold for SBP < 100", "Hold medication if SBP less than 100",
+      // "Hold if HR < 60". These are parameter-driven hold instructions
+      // (like sliding scale) rather than true duplicate administrations,
+      // so they should not be flagged as duplicates.
+      const isHoldInstruction = /\bhold\b.{0,25}\b(if|for)\b/i.test(normalizedNote)
+      if (isHoldInstruction) continue
+
       const noteKey = normalizedNote.substring(0, 80)
       const resKey = block.residentName === "N/A" ? "unknown" : block.residentName
       const key = resKey + "|||" + noteKey

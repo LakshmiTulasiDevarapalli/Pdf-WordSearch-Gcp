@@ -69,7 +69,8 @@ const DEFAULT_KEYWORDS = [
   "KILL",
   "INCOMPA",
   "JUMP",
-  "BREAK"
+  "BREAK",
+  "BUMP"
   // "ERROR",
   // "CODE",
   // "CHANGE",

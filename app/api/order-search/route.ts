@@ -127,10 +127,23 @@ function parseOrderListingRows(text: string, numPages: number): OrderRow[] {
 
   // Resident name pattern: "Lastname, Firstname (NNNNN)" — accepts both
   // ALL-CAPS ("CRAIG, KELLY DENISE") and Title Case ("Brown, Irma") names.
-  // Each name segment must start with an uppercase letter; the rest of the
-  // segment may be upper- or lower-case. Requires the trailing "(digits)".
+  //
+  // IMPORTANT: the surname is restricted to a SINGLE word (no internal
+  // whitespace). The table header ("Resident Name  Order Summary  Order
+  // Category  Order Status  Revision Date  Supply Last Order Date  Supply
+  // Reorder") repeats at the top of every PDF page, and pdfjs joins each
+  // page's text with plain spaces — so when a resident row falls right
+  // after a page break, the header's words sit immediately before the real
+  // name with no comma between them. An earlier version of this pattern
+  // allowed the surname to span multiple words (to support compound
+  // surnames), which let it greedily swallow the entire header line up to
+  // the first comma — producing malformed names like "Resident Name Order
+  // Summary ... Supply Reorder  OXLEY, CATHERINE ANN (56643)". None of the
+  // real data contains multi-word surnames (only first names do, e.g.
+  // "CATHERINE ANN", "DEBRA LYNEER"), so restricting the surname to one
+  // word closes this hole while still matching every legitimate row.
   const residentPattern =
-    /(?<![A-Za-z])([A-Z][A-Za-z'’.-]+(?:\s+[A-Za-z'’.-]+)*,\s*[A-Z][A-Za-z'’.-]*(?:\s+[A-Za-z'’.-]+)*\s*\(\d+\))/g
+    /(?<![A-Za-z])([A-Z][A-Za-z'’.-]+,\s*[A-Z][A-Za-z'’.-]*(?:\s+[A-Za-z'’.-]+){0,2}\s*\(\d+\))/g
 
   // Status values
   const statusPattern = /\b(Active|Completed|Discontinued)\b/i
