@@ -8,6 +8,8 @@ import { LogOut, FileSearch, Settings } from "lucide-react"
 import { FileUploadSection } from "@/components/file-upload-section"
 import { MedicationSection } from "@/components/medication-section"
 import { OrderListingSection } from "@/components/order-listing-section"
+import { BGMComplianceSection } from "@/components/bgm-compliance-section"
+import { DiabetesCheckTrackSection } from "@/components/diabetes-check-track-section"
 import { SettingsDropdown } from "@/components/settings-dropdown"
 import { supabase } from "@/lib/supabase"
 import { recordAuditEvent } from "@/lib/login-audit"
@@ -54,7 +56,7 @@ export default function DashboardPage() {
   const [userEmail, setUserEmail] = useState("")
   const [userRole, setUserRole] = useState<string | null>(null)
   const [authChecked, setAuthChecked] = useState(false)
-  const [activeTab, setActiveTab] = useState<"progress" | "medication" | "order-listing">("progress")
+  const [activeTab, setActiveTab] = useState<"progress" | "medication" | "order-listing" | "bgm-compliance" | "diabetes-check-track">("progress")
 
   useEffect(() => {
     const getUser = async () => {
@@ -253,6 +255,24 @@ export default function DashboardPage() {
                 📝 Order Listing
               </button>
             )}
+            {userRole?.toLowerCase() === "admin" && (
+              <button
+                type="button"
+                className={`tab-btn ${activeTab === "bgm-compliance" ? "tab-btn-active" : "tab-btn-inactive"}`}
+                onClick={() => setActiveTab("bgm-compliance")}
+              >
+                🩸 BGM Compliance Review
+              </button>
+            )}
+            {userRole?.toLowerCase() === "admin" && (
+              <button
+                type="button"
+                className={`tab-btn ${activeTab === "diabetes-check-track" ? "tab-btn-active" : "tab-btn-inactive"}`}
+                onClick={() => setActiveTab("diabetes-check-track")}
+              >
+                🧪 Diabetes Check and Track
+              </button>
+            )}
           </div>
 
           {/* Gold divider */}
@@ -269,6 +289,14 @@ export default function DashboardPage() {
 
           {activeTab === "order-listing" && (
             <OrderListingSection userRole={userRole} />
+          )}
+
+          {activeTab === "bgm-compliance" && (
+            <BGMComplianceSection userRole={userRole} />
+          )}
+
+          {activeTab === "diabetes-check-track" && (
+            <DiabetesCheckTrackSection userRole={userRole} />
           )}
         </div>
       </main>
