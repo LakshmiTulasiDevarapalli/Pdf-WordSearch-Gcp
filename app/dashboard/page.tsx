@@ -10,6 +10,7 @@ import { MedicationSection } from "@/components/medication-section"
 import { OrderListingSection } from "@/components/order-listing-section"
 import { BGMComplianceSection } from "@/components/bgm-compliance-section"
 import { DiabetesCheckTrackSection } from "@/components/diabetes-check-track-section"
+import { AntibioticsCheckSection } from "@/components/antibiotics-check-section"
 import { SettingsDropdown } from "@/components/settings-dropdown"
 import { supabase } from "@/lib/supabase"
 import { recordAuditEvent } from "@/lib/login-audit"
@@ -56,7 +57,7 @@ export default function DashboardPage() {
   const [userEmail, setUserEmail] = useState("")
   const [userRole, setUserRole] = useState<string | null>(null)
   const [authChecked, setAuthChecked] = useState(false)
-  const [activeTab, setActiveTab] = useState<"progress" | "medication" | "order-listing" | "bgm-compliance" | "diabetes-check-track">("progress")
+  const [activeTab, setActiveTab] = useState<"progress" | "medication" | "order-listing" | "bgm-compliance" | "diabetes-check-track" | "antibiotics-check">("progress")
 
   useEffect(() => {
     const getUser = async () => {
@@ -229,7 +230,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Tabs */}
-          <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"20px", padding:"5px", borderRadius:"14px", background:"rgba(255,255,255,0.7)", border:"1px solid rgba(201,168,76,0.18)", width:"fit-content" }}>
+          <div style={{ display:"flex", alignItems:"center", flexWrap:"wrap", gap:"8px", rowGap:"10px", marginBottom:"20px", padding:"5px", borderRadius:"14px", background:"rgba(255,255,255,0.7)", border:"1px solid rgba(201,168,76,0.18)", width:"100%", maxWidth:"fit-content" }}>
             <button
               type="button"
               className={`tab-btn ${activeTab === "progress" ? "tab-btn-active" : "tab-btn-inactive"}`}
@@ -273,6 +274,15 @@ export default function DashboardPage() {
                 🧪 Diabetes Check and Track
               </button>
             )}
+            {userRole?.toLowerCase() === "admin" && (
+              <button
+                type="button"
+                className={`tab-btn ${activeTab === "antibiotics-check" ? "tab-btn-active" : "tab-btn-inactive"}`}
+                onClick={() => setActiveTab("antibiotics-check")}
+              >
+                💉 Antibiotics Stewardship
+              </button>
+            )}
           </div>
 
           {/* Gold divider */}
@@ -297,6 +307,10 @@ export default function DashboardPage() {
 
           {activeTab === "diabetes-check-track" && (
             <DiabetesCheckTrackSection userRole={userRole} />
+          )}
+
+          {activeTab === "antibiotics-check" && (
+            <AntibioticsCheckSection userRole={userRole} />
           )}
         </div>
       </main>
