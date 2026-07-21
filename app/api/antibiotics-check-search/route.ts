@@ -113,6 +113,20 @@ function isExcludedOrder(orderSummary: string): boolean {
   })
 }
 
+// ── Condition filter ──
+// Only flag antibiotic orders whose text references one of these conditions.
+// Word-boundary, case-insensitive match. "bactremia" is kept alongside the
+// correct spelling "bacteremia" in case source notes contain the misspelling.
+const CONDITION_KEYWORDS = ["urinary", "uti", "sepsis", "bacteremia", "bactremia"]
+
+function matchesCondition(orderSummary: string): boolean {
+  const lower = orderSummary.toLowerCase()
+  return CONDITION_KEYWORDS.some((keyword) => {
+    const pattern = new RegExp("\\b" + keyword.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&") + "\\b", "i")
+    return pattern.test(lower)
+  })
+}
+
 // Pulls a short display name off the front of the order summary, e.g.
 // "Cefdinir Oral Capsule 300 MG (Cefdinir) Give 1 capsule..." -> the part
 // before the administration verb ("Give", "Apply", etc).
@@ -187,21 +201,34 @@ export async function POST(request: NextRequest) {
       const flaggedClusters = clusters
       if (flaggedClusters.length === 0) continue
 
-      const totalFlaggedOrders = flaggedClusters.reduce((s, c) => s + c.length, 0)
+      // Within each flagged cluster, only keep the orders that relate to
+      // Urinary/UTI/sepsis/bacteremia — everything else is dropped entirely
+      // so it never reaches the screen results or the export.
+      const groups = flaggedClusters
+        .map((cluster) => {
+          const matched = cluster.filter(({ o }) => matchesCondition(o.orderSummary))
+          return {
+            duplicateNoteText:
+              matched.length + " of " + cluster.length +
+              " antibiotic order" + (cluster.length !== 1 ? "s" : "") +
+              " in this cluster (3+ days apart) relate to Urinary/UTI/sepsis/bacteremia.",
+            entries: matched.map(({ o }) => ({
+              effectiveDate: o.revisionDate,
+              noteText: o.orderSummary + " — " + o.status + (o.category ? " · " + o.category : ""),
+            })),
+          }
+        })
+        .filter((group) => group.entries.length >= 2)
+
+      if (groups.length === 0) continue
+
+      const totalFlaggedOrders = groups.reduce((s, g) => s + g.entries.length, 0)
 
       results.push({
         residentName: resident.residentName + " (" + resident.residentId + ")",
         location: "N/A",
         admissionDate: "",
-        groups: flaggedClusters.map((cluster) => ({
-          duplicateNoteText:
-            cluster.length +
-            " antibiotic orders each 3 or more days apart from the next.",
-          entries: cluster.map(({ o }) => ({
-            effectiveDate: o.revisionDate,
-            noteText: o.orderSummary + " — " + o.status + (o.category ? " · " + o.category : ""),
-          })),
-        })),
+        groups,
       })
 
     //   console.log(

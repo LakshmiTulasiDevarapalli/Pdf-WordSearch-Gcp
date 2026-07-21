@@ -24,6 +24,50 @@ interface AntibioticsCheckResult {
   groups: AntibioticsGroup[]
 }
 
+// ── Condition filter ──
+// Only entries whose note text references one of these conditions are
+// included in the exported report. Word-boundary, case-insensitive match.
+// "bactremia" is kept alongside the correct spelling "bacteremia" in case
+// source notes contain the misspelling.
+// NOTE: the search route now applies this same filter before results ever
+// reach the client, so in normal use this is a defensive no-op. It's kept
+// here so the export stays correct even if it's ever called with unfiltered
+// data from another caller.
+const CONDITION_KEYWORDS = ["urinary", "uti", "sepsis", "bacteremia", "bactremia"]
+
+function matchesCondition(noteText: string): boolean {
+  const lower = noteText.toLowerCase()
+  return CONDITION_KEYWORDS.some((keyword) => {
+    const pattern = new RegExp("\\b" + keyword.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&") + "\\b", "i")
+    return pattern.test(lower)
+  })
+}
+
+// Filters a full result set down to only entries that reference one of the
+// CONDITION_KEYWORDS, dropping any group or resident left with no matching
+// entries.
+function filterResultsByCondition(results: AntibioticsCheckResult[]): AntibioticsCheckResult[] {
+  return results
+    .map((resident) => {
+      const groups = resident.groups
+        .map((group) => {
+          const entries = group.entries.filter((entry) => matchesCondition(entry.noteText))
+          return {
+            ...group,
+            entries,
+            duplicateNoteText:
+              entries.length +
+              " of " + group.entries.length +
+              " antibiotic order" + (group.entries.length !== 1 ? "s" : "") +
+              " in this cluster relate to Urinary/UTI/sepsis/bacteremia.",
+          }
+        })
+        .filter((group) => group.entries.length >= 2)
+      return { ...resident, groups }
+    })
+    .filter((resident) => resident.groups.length > 0)
+}
+
 const NAVY       = "1B3A6B"
 const GOLD       = "B8860B"
 const LIGHT_GOLD = "FEF3C7"
@@ -41,13 +85,23 @@ function noBorder() {
 
 export async function POST(request: NextRequest) {
   try {
-    const { results, fileName } = (await request.json()) as {
+    const { results: rawResults, fileName } = (await request.json()) as {
       results: AntibioticsCheckResult[]
       fileName: string
     }
 
-    if (!results || results.length === 0) {
+    if (!rawResults || rawResults.length === 0) {
       return NextResponse.json({ error: "No results to export" }, { status: 400 })
+    }
+
+    // Only export paragraphs/entries related to: Urinary, UTI, sepsis, bacteremia
+    const results = filterResultsByCondition(rawResults)
+
+    if (results.length === 0) {
+      return NextResponse.json(
+        { error: "No antibiotic orders related to Urinary, UTI, sepsis, or bacteremia were found to export" },
+        { status: 400 }
+      )
     }
 
     const totalEntries = results.reduce((s, r) => s + r.groups.reduce((gs, g) => gs + g.entries.length, 0), 0)
