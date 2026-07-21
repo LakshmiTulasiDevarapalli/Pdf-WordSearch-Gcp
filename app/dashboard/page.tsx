@@ -4,7 +4,10 @@ import type React from "react"
 import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { LogOut, FileSearch, Settings } from "lucide-react"
+import {
+  LogOut, FileSearch, FileText, Pill, ClipboardList,
+  Droplet, Activity, Syringe, Menu, X,
+} from "lucide-react"
 import { FileUploadSection } from "@/components/file-upload-section"
 import { MedicationSection } from "@/components/medication-section"
 import { OrderListingSection } from "@/components/order-listing-section"
@@ -52,17 +55,62 @@ function ParticleCanvas() {
   return <canvas ref={canvasRef} style={{position:"fixed",inset:0,width:"100%",height:"100%",zIndex:0}}/>
 }
 
+type TabKey = "progress" | "medication" | "order-listing" | "bgm-compliance" | "diabetes-check-track" | "antibiotics-check"
+
+const TAB_META: Record<TabKey, { label: string; icon: React.ComponentType<{ style?: React.CSSProperties; className?: string }>; description: string; adminOnly: boolean }> = {
+  "progress": {
+    label: "Progress Notes",
+    icon: FileText,
+    description: "Upload a PDF, search compliance keywords, and export your findings as a Word document.",
+    adminOnly: false,
+  },
+  "medication": {
+    label: "Medication Availability",
+    icon: Pill,
+    description: "Check current stock levels and flag medications that are due for reorder.",
+    adminOnly: true,
+  },
+  "order-listing": {
+    label: "Order Listing",
+    icon: ClipboardList,
+    description: "Review outstanding supply orders and their fulfilment status.",
+    adminOnly: true,
+  },
+  "bgm-compliance": {
+    label: "BGM Compliance Review",
+    icon: Droplet,
+    description: "Audit blood glucose monitoring logs against your facility's compliance schedule.",
+    adminOnly: true,
+  },
+  "diabetes-check-track": {
+    label: "Diabetes Check and Track",
+    icon: Activity,
+    description: "Track diabetes screening checkpoints and follow-up status across residents.",
+    adminOnly: true,
+  },
+  "antibiotics-check": {
+    label: "Antibiotics Stewardship",
+    icon: Syringe,
+    description: "Review active antibiotic courses against stewardship policy.",
+    adminOnly: true,
+  },
+}
+
+const TAB_ORDER: TabKey[] = ["progress", "medication", "order-listing", "bgm-compliance", "diabetes-check-track", "antibiotics-check"]
+
 export default function DashboardPage() {
   const router = useRouter()
   const [userEmail, setUserEmail] = useState("")
   const [userRole, setUserRole] = useState<string | null>(null)
   const [authChecked, setAuthChecked] = useState(false)
-  const [activeTab, setActiveTab] = useState<"progress" | "medication" | "order-listing" | "bgm-compliance" | "diabetes-check-track" | "antibiotics-check">("progress")
+  const [activeTab, setActiveTab] = useState<TabKey>("progress")
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sweepKey, setSweepKey] = useState(0)
 
   useEffect(() => {
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.replace("/"); return }
+      if (!user) { router.replace("/login"); return }
       setUserEmail(user.email || "")
       const { data: userData } = await supabase
         .from("users").select("department, role").eq("email", user.email).single()
@@ -75,10 +123,15 @@ export default function DashboardPage() {
   const handleLogout = async () => {
     await recordAuditEvent("LOGOUT", userEmail)
     await supabase.auth.signOut()
-    router.push("/")
+    router.push("/login")
   }
 
   if (!authChecked) return null
+
+  const isAdmin = userRole?.toLowerCase() === "admin"
+  const visibleTabs = TAB_ORDER.filter(key => !TAB_META[key].adminOnly || isAdmin)
+  const active = TAB_META[activeTab]
+  const ActiveIcon = active.icon
 
   // Initials avatar
   const initials = userEmail ? userEmail.slice(0, 2).toUpperCase() : "??"
@@ -92,7 +145,7 @@ export default function DashboardPage() {
   return (
     <div style={{ fontFamily:"'DM Sans',sans-serif", height:"100vh", display:"flex", flexDirection:"column", overflow:"hidden" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap');
 
         @keyframes fadeDown { from{opacity:0;transform:translateY(-10px)} to{opacity:1;transform:translateY(0)} }
         @keyframes shimmer  { 0%{background-position:-200% center} 100%{background-position:200% center} }
@@ -116,6 +169,14 @@ export default function DashboardPage() {
           transition:all .2s;
         }
         .logout-btn:hover { box-shadow:0 6px 24px rgba(26,46,110,0.42); transform:translateY(-1px); }
+
+        .icon-btn {
+          display:inline-flex;align-items:center;justify-content:center;
+          width:36px;height:36px;border-radius:10px;border:1px solid rgba(201,168,76,0.25);
+          background:rgba(255,255,255,0.8);color:#1a2e6e;cursor:pointer;
+          transition:all .18s;
+        }
+        .icon-btn:hover { background:#fff;border-color:rgba(26,46,110,0.3); }
 
         .avatar {
           width:34px;height:34px;border-radius:10px;
@@ -147,26 +208,105 @@ export default function DashboardPage() {
           border-radius:12px !important;
         }
 
-        .tab-btn {
-          display:inline-flex;align-items:center;gap:7px;
-          padding:9px 22px;border-radius:10px;border:none;cursor:pointer;
-          font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;
-          transition:all .2s;
+        /* ── Shell: sidebar + main ── */
+        .dash-shell { flex:1; display:grid; grid-template-columns:240px 1fr; overflow:hidden; position:relative; z-index:10; }
+
+        .sidebar {
+          border-right:1px solid rgba(201,168,76,0.16);
+          background:rgba(255,255,255,0.62);
+          backdrop-filter:blur(18px);
+          padding:20px 14px;
+          overflow-y:auto;
         }
-        .tab-btn-active {
-          background:linear-gradient(135deg,#1a2e6e,#4c1d95);
-          color:#fff;
-          box-shadow:0 4px 16px rgba(26,46,110,0.25);
+        .sidebar-eyebrow {
+          font-size:10.5px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;
+          color:#9ca3af;padding:0 6px 10px;
         }
-        .tab-btn-inactive {
-          background:rgba(255,255,255,0.7);
-          color:#6b7280;
-          border:1px solid rgba(201,168,76,0.2) !important;
+        .sidebar-nav { display:flex; flex-direction:column; gap:3px; }
+        .sidebar-nav-btn {
+          position:relative;
+          display:flex;align-items:center;gap:10px;
+          width:100%;padding:10px 12px 10px 18px;
+          border-radius:10px;border:none;background:transparent;cursor:pointer;
+          font-family:inherit;font-size:13px;font-weight:600;color:#6b7280;
+          text-align:left;transition:all .18s;
         }
-        .tab-btn-inactive:hover {
-          background:rgba(255,255,255,0.95);
+        .sidebar-nav-btn:hover { background:rgba(26,46,110,0.05); color:#1a2e6e; }
+        .sidebar-nav-btn.active {
+          background:linear-gradient(135deg, rgba(26,46,110,0.09), rgba(76,29,149,0.06));
           color:#1a2e6e;
-          border-color:rgba(26,46,110,0.2) !important;
+        }
+        .sidebar-nav-btn.active::before {
+          content:"";position:absolute;left:4px;top:7px;bottom:7px;width:3px;border-radius:2px;
+          background:linear-gradient(180deg,#1a2e6e,#c9a84c,#4c1d95);
+        }
+        .sidebar-nav-btn .nav-icon { flex-shrink:0; width:16px; height:16px; }
+        .sidebar-nav-btn .nav-label { flex:1; }
+        .sidebar-nav-btn .nav-index {
+          font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:500;
+          color:#c4c4c4; letter-spacing:0.02em;
+        }
+        .sidebar-nav-btn.active .nav-index { color:#c9a84c; }
+
+        .module-meta {
+          font-family:'IBM Plex Mono',monospace; font-size:10.5px; font-weight:500;
+          letter-spacing:0.08em; color:#9ca3af; text-transform:uppercase; margin-bottom:8px;
+        }
+
+        .sweep {
+          position:absolute; top:0; left:-30%; width:30%; height:100%;
+          background:linear-gradient(90deg, transparent, rgba(201,168,76,0.14), transparent);
+          pointer-events:none; animation: sweepMove .9s ease-out;
+        }
+        @keyframes sweepMove { from { left:-30%; } to { left:100%; } }
+
+        .dash-content { overflow:auto; position:relative; }
+        .dash-content-inner { position:relative; overflow:hidden; }
+
+        /* Themed scrollbars for the scrolling panels */
+        .dash-content, .sidebar {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(76,29,149,0.35) transparent;
+        }
+        .dash-content::-webkit-scrollbar, .sidebar::-webkit-scrollbar {
+          width: 9px;
+        }
+        .dash-content::-webkit-scrollbar-track, .sidebar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .dash-content::-webkit-scrollbar-thumb, .sidebar::-webkit-scrollbar-thumb {
+          background: linear-gradient(180deg, rgba(26,46,110,0.28), rgba(201,168,76,0.4), rgba(76,29,149,0.28));
+          border-radius: 8px;
+          border: 2px solid transparent;
+          background-clip: padding-box;
+        }
+        .dash-content::-webkit-scrollbar-thumb:hover, .sidebar::-webkit-scrollbar-thumb:hover {
+          background: linear-gradient(180deg, rgba(26,46,110,0.45), rgba(201,168,76,0.6), rgba(76,29,149,0.45));
+          background-clip: padding-box;
+        }
+
+        .module-header-icon {
+          width:44px;height:44px;border-radius:13px;flex-shrink:0;
+          background:linear-gradient(135deg,#1a2e6e,#4c1d95);
+          box-shadow:0 6px 20px rgba(26,46,110,0.28);
+          display:flex;align-items:center;justify-content:center;
+        }
+
+        /* Mobile: sidebar collapses to a slide-over panel */
+        .sidebar-toggle { display:none; }
+        .sidebar-scrim { display:none; }
+        @media (max-width: 860px) {
+          .dash-shell { grid-template-columns: 1fr; }
+          .sidebar {
+            position:fixed; top:64px; left:0; bottom:0; width:250px; z-index:60;
+            transform:translateX(-100%); transition:transform .22s ease;
+            box-shadow:0 12px 40px rgba(0,0,0,0.18);
+          }
+          .sidebar.open { transform:translateX(0); }
+          .sidebar-toggle { display:inline-flex; }
+          .sidebar-scrim.open {
+            display:block; position:fixed; inset:64px 0 0 0; background:rgba(15,20,40,0.35); z-index:55;
+          }
         }
       `}</style>
 
@@ -174,18 +314,30 @@ export default function DashboardPage() {
 
       {/* ── Header ── */}
       <header className="dash-header" style={{ position:"relative", zIndex:50, height:"64px", flexShrink:0, display:"flex", alignItems:"center", borderBottom:"1px solid rgba(201,168,76,0.15)", background:"rgba(255,255,255,0.88)", backdropFilter:"blur(20px)" }}>
-        <div style={{ maxWidth:"1280px", margin:"0 auto", padding:"0 24px", width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+        <div style={{ maxWidth:"1440px", margin:"0 auto", padding:"0 24px", width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between", gap:"12px" }}>
 
-          {/* Logo */}
-          <Link href="/" style={{ display:"flex", alignItems:"center", gap:"10px", textDecoration:"none" }}>
-            <div style={{ padding:"8px", borderRadius:"12px", background:"linear-gradient(135deg,#1a2e6e,#4c1d95)", boxShadow:"0 3px 12px rgba(26,46,110,0.28)" }}>
-              <FileSearch style={{ width:"17px", height:"17px", color:"#fbbf24" }}/>
-            </div>
-            <div>
-              <div style={{ fontFamily:"'Instrument Serif',Georgia,serif", fontSize:"19px", background:"linear-gradient(135deg,#1a2e6e,#4c1d95)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", lineHeight:1.1 }}>AICS</div>
-              <div style={{ fontSize:"8.5px", fontWeight:700, letterSpacing:"0.2em", color:"#92400e", textTransform:"uppercase" }}>PDF Search Engine</div>
-            </div>
-          </Link>
+          <div style={{ display:"flex", alignItems:"center", gap:"10px" }}>
+            {/* Mobile nav toggle */}
+            <button
+              type="button"
+              className="icon-btn sidebar-toggle"
+              onClick={() => setSidebarOpen(o => !o)}
+              aria-label="Toggle navigation"
+            >
+              {sidebarOpen ? <X style={{width:"16px",height:"16px"}}/> : <Menu style={{width:"16px",height:"16px"}}/>}
+            </button>
+
+            {/* Logo */}
+            <Link href="/" style={{ display:"flex", alignItems:"center", gap:"10px", textDecoration:"none" }}>
+              <div style={{ padding:"8px", borderRadius:"12px", background:"linear-gradient(135deg,#1a2e6e,#4c1d95)", boxShadow:"0 3px 12px rgba(26,46,110,0.28)" }}>
+                <FileSearch style={{ width:"17px", height:"17px", color:"#fbbf24" }}/>
+              </div>
+              <div>
+                <div style={{ fontFamily:"'Instrument Serif',Georgia,serif", fontSize:"19px", background:"linear-gradient(135deg,#1a2e6e,#4c1d95)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", lineHeight:1.1 }}>AICS</div>
+                <div style={{ fontSize:"8.5px", fontWeight:700, letterSpacing:"0.2em", color:"#92400e", textTransform:"uppercase" }}>PDF Search Engine</div>
+              </div>
+            </Link>
+          </div>
 
           {/* Right side */}
           <div style={{ display:"flex", alignItems:"center", gap:"12px" }}>
@@ -216,108 +368,91 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* ── Main Content ── */}
-      <main className="dash-content" style={{ flex:1, overflow:"auto", position:"relative", zIndex:10 }}>
-        <div style={{ maxWidth:"1280px", margin:"0 auto", padding:"24px 24px 32px" }}>
+      {/* ── Shell: sidebar + content ── */}
+      <div className="dash-shell">
 
-          {/* Page title */}
-          <div style={{ marginBottom:"20px" }}>
-            <h1 style={{ fontFamily:"'Instrument Serif',Georgia,serif", fontSize:"clamp(22px,2.5vw,30px)", lineHeight:1.15, marginBottom:"4px" }}>
-              <span style={{ background:"linear-gradient(135deg,#1a2e6e,#4c1d95)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>Document </span>
-              <span className="shimmer-text">Search</span>
-            </h1>
-            <p style={{ fontSize:"13px", color:"#9ca3af" }}>Upload a PDF, search compliance keywords, and export your findings as a Word document.</p>
+        {/* Mobile scrim */}
+        <div className={`sidebar-scrim ${sidebarOpen ? "open" : ""}`} onClick={() => setSidebarOpen(false)} />
+
+        {/* Sidebar */}
+        <nav className={`sidebar ${sidebarOpen ? "open" : ""}`}>
+          <div className="sidebar-eyebrow">Compliance Modules</div>
+          <div className="sidebar-nav">
+            {visibleTabs.map((key, i) => {
+              const meta = TAB_META[key]
+              const Icon = meta.icon
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  className={`sidebar-nav-btn ${activeTab === key ? "active" : ""}`}
+                  onClick={() => { setActiveTab(key); setSidebarOpen(false); setSweepKey(k => k + 1) }}
+                >
+                  <Icon className="nav-icon" style={{ width:"16px", height:"16px" }}/>
+                  <span className="nav-label">{meta.label}</span>
+                  <span className="nav-index">{String(i + 1).padStart(2, "0")}</span>
+                </button>
+              )
+            })}
           </div>
+        </nav>
 
-          {/* Tabs */}
-          <div style={{ display:"flex", alignItems:"center", flexWrap:"wrap", gap:"8px", rowGap:"10px", marginBottom:"20px", padding:"5px", borderRadius:"14px", background:"rgba(255,255,255,0.7)", border:"1px solid rgba(201,168,76,0.18)", width:"100%", maxWidth:"fit-content" }}>
-            <button
-              type="button"
-              className={`tab-btn ${activeTab === "progress" ? "tab-btn-active" : "tab-btn-inactive"}`}
-              onClick={() => setActiveTab("progress")}
-            >
-              📋 Progress Notes
-            </button>
-            {userRole?.toLowerCase() === "admin" && (
-              <button
-                type="button"
-                className={`tab-btn ${activeTab === "medication" ? "tab-btn-active" : "tab-btn-inactive"}`}
-                onClick={() => setActiveTab("medication")}
-              >
-                💊 Medication Availability
-              </button>
+        {/* Main Content */}
+        <main className="dash-content">
+          <div className="dash-content-inner" style={{ maxWidth:"1120px", margin:"0 auto", padding:"24px 24px 32px" }}>
+            <div className="sweep" key={sweepKey}/>
+
+            <div className="module-meta">
+              Module {String(visibleTabs.indexOf(activeTab) + 1).padStart(2, "0")} · {active.label}
+            </div>
+
+            {/* Module header */}
+            <div style={{ display:"flex", alignItems:"flex-start", gap:"14px", marginBottom:"22px" }}>
+              <div className="module-header-icon">
+                <ActiveIcon style={{ width:"20px", height:"20px", color:"#fbbf24" }}/>
+              </div>
+              <div>
+                <h1 style={{ fontFamily:"'Instrument Serif',Georgia,serif", fontSize:"clamp(20px,2.4vw,27px)", lineHeight:1.15, marginBottom:"4px" }}>
+                  <span className="shimmer-text">{active.label}</span>
+                </h1>
+                <p style={{ fontSize:"13px", color:"#9ca3af", maxWidth:"560px" }}>{active.description}</p>
+              </div>
+            </div>
+
+            {/* Gold divider */}
+            <div style={{ height:"1px", background:"linear-gradient(90deg,rgba(26,46,110,0.15),rgba(201,168,76,0.4),transparent)", marginBottom:"22px" }}/>
+
+            {/* Tab Content */}
+            {activeTab === "progress" && (
+              <FileUploadSection userRole={userRole}/>
             )}
-            {userRole?.toLowerCase() === "admin" && (
-              <button
-                type="button"
-                className={`tab-btn ${activeTab === "order-listing" ? "tab-btn-active" : "tab-btn-inactive"}`}
-                onClick={() => setActiveTab("order-listing")}
-              >
-                📝 Order Listing
-              </button>
+
+            {activeTab === "medication" && (
+              <MedicationSection />
             )}
-            {userRole?.toLowerCase() === "admin" && (
-              <button
-                type="button"
-                className={`tab-btn ${activeTab === "bgm-compliance" ? "tab-btn-active" : "tab-btn-inactive"}`}
-                onClick={() => setActiveTab("bgm-compliance")}
-              >
-                🩸 BGM Compliance Review
-              </button>
+
+            {activeTab === "order-listing" && (
+              <OrderListingSection userRole={userRole} />
             )}
-            {userRole?.toLowerCase() === "admin" && (
-              <button
-                type="button"
-                className={`tab-btn ${activeTab === "diabetes-check-track" ? "tab-btn-active" : "tab-btn-inactive"}`}
-                onClick={() => setActiveTab("diabetes-check-track")}
-              >
-                🧪 Diabetes Check and Track
-              </button>
+
+            {activeTab === "bgm-compliance" && (
+              <BGMComplianceSection userRole={userRole} />
             )}
-            {userRole?.toLowerCase() === "admin" && (
-              <button
-                type="button"
-                className={`tab-btn ${activeTab === "antibiotics-check" ? "tab-btn-active" : "tab-btn-inactive"}`}
-                onClick={() => setActiveTab("antibiotics-check")}
-              >
-                💉 Antibiotics Stewardship
-              </button>
+
+            {activeTab === "diabetes-check-track" && (
+              <DiabetesCheckTrackSection userRole={userRole} />
+            )}
+
+            {activeTab === "antibiotics-check" && (
+              <AntibioticsCheckSection userRole={userRole} />
             )}
           </div>
-
-          {/* Gold divider */}
-          <div style={{ height:"1px", background:"linear-gradient(90deg,rgba(26,46,110,0.15),rgba(201,168,76,0.4),transparent)", marginBottom:"20px" }}/>
-
-          {/* Tab Content */}
-          {activeTab === "progress" && (
-            <FileUploadSection userRole={userRole}/>
-          )}
-
-          {activeTab === "medication" && (
-            <MedicationSection />
-          )}
-
-          {activeTab === "order-listing" && (
-            <OrderListingSection userRole={userRole} />
-          )}
-
-          {activeTab === "bgm-compliance" && (
-            <BGMComplianceSection userRole={userRole} />
-          )}
-
-          {activeTab === "diabetes-check-track" && (
-            <DiabetesCheckTrackSection userRole={userRole} />
-          )}
-
-          {activeTab === "antibiotics-check" && (
-            <AntibioticsCheckSection userRole={userRole} />
-          )}
-        </div>
-      </main>
+        </main>
+      </div>
 
       {/* ── Footer strip ── */}
       <footer style={{ position:"relative", zIndex:10, flexShrink:0, height:"36px", display:"flex", alignItems:"center", borderTop:"1px solid rgba(201,168,76,0.12)", background:"rgba(255,255,255,0.88)", backdropFilter:"blur(12px)" }}>
-        <div style={{ maxWidth:"1280px", margin:"0 auto", padding:"0 24px", width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+        <div style={{ maxWidth:"1440px", margin:"0 auto", padding:"0 24px", width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
           <span style={{ fontSize:"11px", color:"#b0b0b0" }}>© 2026 AICS. All rights reserved.</span>
           <span style={{ fontSize:"11px", color:"#b0b0b0" }}>🔒 Zero data retention · ⚡ In-memory processing</span>
         </div>

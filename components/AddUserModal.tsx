@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from "react"
 import { Eye, EyeOff, Copy, Check, X } from "lucide-react"
+import { supabase } from "@/lib/supabase"
 
 interface UserData {
   id: string
@@ -75,11 +76,22 @@ export default function AddUserModal({ open, onClose, onSuccess, editUser }: Add
     setError(null)
     setLoading(true)
 
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      setError("Your session has expired. Please sign in again.")
+      setLoading(false)
+      return
+    }
+    const authHeaders = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.access_token}`,
+    }
+
     if (isEdit && editUser) {
       // Edit mode — update via server-side API route (uses service role key to bypass RLS)
       const res = await fetch("/api/admin/update-user", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders,
         body: JSON.stringify({
           id: editUser.id,
           full_name: form.full_name,
@@ -100,7 +112,7 @@ export default function AddUserModal({ open, onClose, onSuccess, editUser }: Add
     // Create mode — call API route with service role key
     const res = await fetch("/api/admin/create-user", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders,
       body: JSON.stringify({
         ...form,
         passwordMode,

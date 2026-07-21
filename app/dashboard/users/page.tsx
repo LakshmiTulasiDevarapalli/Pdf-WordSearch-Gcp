@@ -29,11 +29,32 @@ export default function UsersPage() {
   const [editUser, setEditUser] = useState<User | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [authChecked, setAuthChecked] = useState(false)
 
   // Pagination + search state
   const [search, setSearch] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(25)
+
+  // Auth + role gate — matches the pattern used in app/dashboard/page.tsx.
+  // Blocks rendering (and the users fetch below) until we've confirmed
+  // there's a real session AND the caller is an admin. Without this, a
+  // stale bookmark or a non-admin account could briefly see/render the
+  // full user list before anything redirected them away.
+  useEffect(() => {
+    const checkAccess = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { router.replace("/login"); return }
+      const { data: userData } = await supabase
+        .from("users").select("role").eq("email", user.email).single()
+      if ((userData?.role ?? "").toLowerCase() !== "admin") {
+        router.replace("/dashboard")
+        return
+      }
+      setAuthChecked(true)
+    }
+    checkAccess()
+  }, [])
 
   const fetchUsers = async () => {
     setLoading(true)
@@ -43,7 +64,7 @@ export default function UsersPage() {
     setLoading(false)
   }
 
-  useEffect(() => { fetchUsers() }, [])
+  useEffect(() => { if (authChecked) fetchUsers() }, [authChecked])
 
   // Reset to page 1 whenever search or pageSize changes
   useEffect(() => { setCurrentPage(1) }, [search, pageSize])
@@ -51,9 +72,18 @@ export default function UsersPage() {
   const handleDelete = async (id: string) => {
     setDeleting(true)
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        setError("Your session has expired. Please sign in again.")
+        setDeleting(false)
+        return
+      }
       const res = await fetch("/api/admin/delete-user", {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({ id }),
       })
       const data = await res.json()
@@ -96,6 +126,8 @@ export default function UsersPage() {
     }
     return pages
   }
+
+  if (!authChecked) return null
 
   return (
     <div className="min-h-screen relative overflow-hidden" style={{ fontFamily: "'DM Sans', sans-serif", background: "#ffffff" }}>

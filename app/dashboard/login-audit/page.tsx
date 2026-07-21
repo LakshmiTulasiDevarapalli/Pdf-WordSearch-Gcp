@@ -9,7 +9,7 @@ import { supabase } from "@/lib/supabase"
 type AuditRow = {
   id: string
   email: string
-  action: "LOGIN" | "LOGOUT"
+  action: "LOGIN" | "LOGOUT" | "LOGOUT_IDLE_TIMEOUT"
   ip_address: string | null
   user_agent: string | null
   created_at: string
@@ -43,6 +43,7 @@ export default function LoginAuditPage() {
   const [search, setSearch]       = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize]   = useState(25)
+  const [authChecked, setAuthChecked] = useState(false)
 
   const fetchAudit = async () => {
     setLoading(true)
@@ -63,11 +64,15 @@ export default function LoginAuditPage() {
 
   useEffect(() => {
     const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        router.push("/login")
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { router.push("/login"); return }
+      const { data: userData } = await supabase
+        .from("users").select("role").eq("email", user.email).single()
+      if ((userData?.role ?? "").toLowerCase() !== "admin") {
+        router.replace("/dashboard")
         return
       }
+      setAuthChecked(true)
       fetchAudit()
     }
     init()
@@ -108,6 +113,8 @@ export default function LoginAuditPage() {
     }
     return pages
   }
+
+  if (!authChecked) return null
 
   return (
     <div className="min-h-screen" style={{ fontFamily: "'DM Sans', sans-serif", background: "#f8f7ff" }}>
@@ -160,6 +167,7 @@ export default function LoginAuditPage() {
         .btn-royal:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
         .badge-login  { background: rgba(16,185,129,0.1); color: #065f46; border: 1px solid rgba(16,185,129,0.25); border-radius: 0.4rem; padding: 0.15rem 0.55rem; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; display: inline-flex; align-items: center; gap: 0.3rem; }
         .badge-logout { background: rgba(239,68,68,0.08); color: #991b1b; border: 1px solid rgba(239,68,68,0.2); border-radius: 0.4rem; padding: 0.15rem 0.55rem; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; display: inline-flex; align-items: center; gap: 0.3rem; }
+        .badge-idle   { background: rgba(201,168,76,0.12); color: #92400e; border: 1px solid rgba(201,168,76,0.35); border-radius: 0.4rem; padding: 0.15rem 0.55rem; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; display: inline-flex; align-items: center; gap: 0.3rem; }
         .table-row:hover td { background: rgba(201,168,76,0.04); }
         .empty-state { text-align: center; padding: 3rem 1rem; color: #9ca3af; }
         .gold-bar { height: 3px; background: linear-gradient(90deg, #1a2e6e, #c9a84c, #f5d06e, #c9a84c, #4c1d95); border-radius: 2px; }
@@ -333,6 +341,10 @@ export default function LoginAuditPage() {
                         {row.action === "LOGIN" ? (
                           <span className="badge-login">
                             <LogIn className="size-3" /> LOGIN
+                          </span>
+                        ) : row.action === "LOGOUT_IDLE_TIMEOUT" ? (
+                          <span className="badge-idle">
+                            <LogOut className="size-3" /> IDLE TIMEOUT
                           </span>
                         ) : (
                           <span className="badge-logout">

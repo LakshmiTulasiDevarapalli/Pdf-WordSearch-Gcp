@@ -4,14 +4,23 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { getAdminClient } from "@/lib/supabase-admin"
+import { requireAdmin } from "@/lib/verify-admin"
 
 export async function PATCH(req: NextRequest) {
+  const auth = await requireAdmin(req)
+  if (auth.error) return auth.error
+
   try {
     const body = await req.json()
     const { id, full_name, role, department, phone } = body
 
     if (!id) {
       return NextResponse.json({ error: "User id is required." }, { status: 400 })
+    }
+
+    // Prevent an admin from demoting themselves out of the admin role via this endpoint
+    if (id === auth.userId && role && role.toLowerCase() !== "admin") {
+      return NextResponse.json({ error: "You cannot change your own role." }, { status: 400 })
     }
 
     // 1. Update public.users

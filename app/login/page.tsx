@@ -59,7 +59,16 @@ export default function LoginPage() {
     setLoading(false)
     if (error) { setError("Invalid email or password. Please try again."); return }
     const { data: { session } } = await supabase.auth.getSession()
-    if (session) await recordAuditEvent("LOGIN", email)
+    if (session) {
+      await recordAuditEvent("LOGIN", email)
+      // Write the first activity heartbeat so the server-side idle-timeout
+      // check (isSessionFresh) has a row to read immediately after login,
+      // instead of a brief window with none.
+      await supabase.from("user_sessions").upsert({
+        user_id: session.user.id,
+        last_activity_at: new Date().toISOString(),
+      })
+    }
     router.push("/dashboard")
   }
 

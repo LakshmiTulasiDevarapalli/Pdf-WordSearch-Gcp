@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { getAdminClient } from "@/lib/supabase-admin"
+import { requireAdmin } from "@/lib/verify-admin"
 
 // Password validation rules
 const PASSWORD_RULES = {
@@ -59,6 +60,9 @@ export function generatePassword(): string {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdmin(req)
+  if (auth.error) return auth.error
+
   try {
     const body = await req.json()
     const { full_name, email, role, department, phone, passwordMode, password } = body

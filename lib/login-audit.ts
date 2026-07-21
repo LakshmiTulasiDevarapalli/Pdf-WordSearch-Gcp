@@ -1,7 +1,7 @@
 import { supabase } from "@/lib/supabase"
 
 export async function recordAuditEvent(
-  action: "LOGIN" | "LOGOUT",
+  action: "LOGIN" | "LOGOUT" | "LOGOUT_IDLE_TIMEOUT",
   email: string
 ) {
   try {

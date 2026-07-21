@@ -290,7 +290,7 @@ export function FileUploadSection({ userRole }: FileUploadSectionProps) {
       <Card>
         <CardHeader>
           <CardTitle style={{fontFamily:"'Instrument Serif',Georgia,serif",fontSize:"20px",fontWeight:400,color:"#111827"}}>Upload PDF File</CardTitle>
-          <CardDescription style={{fontFamily:"'DM Sans',sans-serif",fontSize:"13px",color:"#9ca3af"}}>Select a PDF file to search for keywords and extract paragraphs. Supports files up to 5 TB in production.</CardDescription>
+          <CardDescription style={{fontFamily:"'DM Sans',sans-serif",fontSize:"13px",color:"#9ca3af"}}>Select a PDF file to search for keywords and extract paragraphs.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
