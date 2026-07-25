@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import {
   LogOut, FileSearch, FileText, Pill, ClipboardList,
-  Droplet, Activity, Syringe, Menu, X,
+  Droplet, Activity, Syringe, Menu, X, HeartPulse,
 } from "lucide-react"
 import { FileUploadSection } from "@/components/file-upload-section"
 import { MedicationSection } from "@/components/medication-section"
@@ -14,6 +14,7 @@ import { OrderListingSection } from "@/components/order-listing-section"
 import { BGMComplianceSection } from "@/components/bgm-compliance-section"
 import { DiabetesCheckTrackSection } from "@/components/diabetes-check-track-section"
 import { AntibioticsCheckSection } from "@/components/antibiotics-check-section"
+import { VitalExceptionReportSection } from "@/components/vital-exception-report-section"
 import { SettingsDropdown } from "@/components/settings-dropdown"
 import { supabase } from "@/lib/supabase"
 import { recordAuditEvent } from "@/lib/login-audit"
@@ -55,7 +56,7 @@ function ParticleCanvas() {
   return <canvas ref={canvasRef} style={{position:"fixed",inset:0,width:"100%",height:"100%",zIndex:0}}/>
 }
 
-type TabKey = "progress" | "medication" | "order-listing" | "bgm-compliance" | "diabetes-check-track" | "antibiotics-check"
+type TabKey = "progress" | "medication" | "order-listing" | "bgm-compliance" | "diabetes-check-track" | "antibiotics-check" | "vital-exception-report"
 
 const TAB_META: Record<TabKey, { label: string; icon: React.ComponentType<{ style?: React.CSSProperties; className?: string }>; description: string; adminOnly: boolean }> = {
   "progress": {
@@ -94,9 +95,15 @@ const TAB_META: Record<TabKey, { label: string; icon: React.ComponentType<{ styl
     description: "Review active antibiotic courses against stewardship policy.",
     adminOnly: true,
   },
+  "vital-exception-report": {
+    label: "Vital Exception Report",
+    icon: HeartPulse,
+    description: "Review vital sign readings that fall outside expected thresholds.",
+    adminOnly: false,
+  },
 }
 
-const TAB_ORDER: TabKey[] = ["progress", "medication", "order-listing", "bgm-compliance", "diabetes-check-track", "antibiotics-check"]
+const TAB_ORDER: TabKey[] = ["progress", "medication", "order-listing", "bgm-compliance", "diabetes-check-track", "antibiotics-check", "vital-exception-report"]
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -445,6 +452,10 @@ export default function DashboardPage() {
 
             {activeTab === "antibiotics-check" && (
               <AntibioticsCheckSection userRole={userRole} />
+            )}
+
+            {activeTab === "vital-exception-report" && (
+              <VitalExceptionReportSection userRole={userRole} />
             )}
           </div>
         </main>
