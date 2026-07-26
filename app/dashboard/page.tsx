@@ -6,13 +6,14 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import {
   LogOut, FileSearch, FileText, Pill, ClipboardList,
-  Droplet, Activity, Syringe, Menu, X, HeartPulse, Info,
+  Droplet, Activity, Syringe, Menu, X, HeartPulse, Info, Candy,
 } from "lucide-react"
 import { FileUploadSection } from "@/components/file-upload-section"
 import { MedicationSection } from "@/components/medication-section"
 import { OrderListingSection } from "@/components/order-listing-section"
 import { BGMComplianceSection } from "@/components/bgm-compliance-section"
 import { DiabetesCheckTrackSection } from "@/components/diabetes-check-track-section"
+import { SugarSenseSection } from "@/components/sugar-sense-section"
 import { AntibioticsCheckSection } from "@/components/antibiotics-check-section"
 import { VitalExceptionReportSection } from "@/components/vital-exception-report-section"
 import { InfoSection } from "@/components/info-section"
@@ -57,55 +58,69 @@ function ParticleCanvas() {
   return <canvas ref={canvasRef} style={{position:"fixed",inset:0,width:"100%",height:"100%",zIndex:0}}/>
 }
 
-type ModuleKey = "progress" | "medication" | "order-listing" | "bgm-compliance" | "diabetes-check-track" | "antibiotics-check" | "vital-exception-report"
+type ModuleKey = "progress" | "medication" | "order-listing" | "bgm-compliance" | "diabetes-check-track" | "sugar-sense" | "antibiotics-check" | "vital-exception-report"
 type TabKey = ModuleKey | "info"
 
-const TAB_META: Record<ModuleKey, { label: string; icon: React.ComponentType<{ style?: React.CSSProperties; className?: string }>; description: string; adminOnly: boolean }> = {
+const TAB_META: Record<ModuleKey, { label: string; icon: React.ComponentType<{ style?: React.CSSProperties; className?: string }>; description: string; adminOnly: boolean; badge?: string }> = {
   "progress": {
     label: "Progress Notes",
     icon: FileText,
     description: "Upload a PDF, search compliance keywords, and export your findings as a Word document.",
     adminOnly: false,
+    badge: "Daily",
   },
   "medication": {
     label: "Medication Availability",
     icon: Pill,
     description: "Check current stock levels and flag medications that are due for reorder.",
     adminOnly: true,
+    badge: "2x/Week",
   },
   "order-listing": {
     label: "Order Listing",
     icon: ClipboardList,
     description: "Review outstanding supply orders and their fulfilment status.",
     adminOnly: true,
+    badge: "Daily",
   },
   "bgm-compliance": {
     label: "BGM Compliance Review",
     icon: Droplet,
     description: "Audit blood glucose monitoring logs against your facility's compliance schedule.",
     adminOnly: true,
+    badge: "Monthly",
   },
   "diabetes-check-track": {
     label: "Diabetes Check and Track",
     icon: Activity,
     description: "Track diabetes screening checkpoints and follow-up status across residents.",
     adminOnly: true,
+    badge: "Monthly",
+  },
+  "sugar-sense": {
+    label: "Sugar Sense",
+    icon: Candy,
+    description: "Surface top blood sugar readings for residents on antidiabetic medication.",
+    adminOnly: true,
+    badge: "Monthly",
   },
   "antibiotics-check": {
     label: "Antibiotics Stewardship",
     icon: Syringe,
     description: "Review active antibiotic courses against stewardship policy.",
     adminOnly: true,
+    badge: "2x/Week",
   },
   "vital-exception-report": {
     label: "Vital Exception Report",
     icon: HeartPulse,
     description: "Review vital sign readings that fall outside expected thresholds.",
     adminOnly: false,
+    badge: "2x/Week",
   },
 }
 
-const TAB_ORDER: ModuleKey[] = ["antibiotics-check", "bgm-compliance", "diabetes-check-track", "medication", "order-listing", "progress", "vital-exception-report"]
+const TAB_ORDER: ModuleKey[] = ["antibiotics-check", "bgm-compliance", "diabetes-check-track", "medication", "order-listing", "progress", "sugar-sense", "vital-exception-report"]
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -242,10 +257,10 @@ export default function DashboardPage() {
         .sidebar-nav { display:flex; flex-direction:column; gap:3px; }
         .sidebar-nav-btn {
           position:relative;
-          display:flex;align-items:center;gap:10px;
+          display:flex;align-items:flex-start;gap:10px;
           width:100%;padding:10px 12px 10px 18px;
           border-radius:10px;border:none;background:transparent;cursor:pointer;
-          font-family:inherit;font-size:13px;font-weight:600;color:#6b7280;
+          font-family:inherit;font-size:13px;font-weight:600;color:#1a2e6e;
           text-align:left;transition:all .18s;
         }
         .sidebar-nav-btn:hover { background:rgba(26,46,110,0.05); color:#1a2e6e; }
@@ -257,18 +272,33 @@ export default function DashboardPage() {
           content:"";position:absolute;left:4px;top:7px;bottom:7px;width:3px;border-radius:2px;
           background:linear-gradient(180deg,#1a2e6e,#c9a84c,#4c1d95);
         }
-        .sidebar-nav-btn .nav-icon { flex-shrink:0; width:16px; height:16px; }
-        .sidebar-nav-btn .nav-label { flex:1; }
-        .sidebar-nav-btn .nav-index {
-          font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:500;
-          color:#c4c4c4; letter-spacing:0.02em;
+        .sidebar-nav-btn .nav-icon { flex-shrink:0; width:16px; height:16px; margin-top:1px; }
+        .sidebar-nav-btn .nav-body { flex:1; min-width:0; }
+        .sidebar-nav-btn .nav-top-row { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+        .sidebar-nav-btn .nav-label { flex:1; line-height:1.3; }
+        .sidebar-nav-btn .nav-badge {
+          display:inline-block;
+          margin-top:5px;
+          font-family:'IBM Plex Mono',monospace; font-size:9px; font-weight:700;
+          letter-spacing:0.04em; text-transform:uppercase;
+          color:#92400e; background:rgba(201,168,76,0.16);
+          border:1px solid rgba(201,168,76,0.35);
+          border-radius:999px; padding:2px 7px;
         }
-        .sidebar-nav-btn.active .nav-index { color:#c9a84c; }
+        .sidebar-nav-btn .nav-index {
+          flex-shrink:0;
+          font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:500;
+          color:#c9a84c; letter-spacing:0.02em; line-height:1.3;
+        }
+        .sidebar-nav-btn.active .nav-index { color:#c9a84c; font-weight:700; }
 
         .module-meta {
-          font-family:'IBM Plex Mono',monospace; font-size:10.5px; font-weight:500;
-          letter-spacing:0.08em; color:#9ca3af; text-transform:uppercase; margin-bottom:8px;
+          font-family:'IBM Plex Mono',monospace; font-size:10.5px; font-weight:700;
+          letter-spacing:0.08em; text-transform:uppercase; margin-bottom:8px;
         }
+        .module-meta .meta-index { color:#b8860b; }
+        .module-meta .meta-sep { color:#c9a84c; margin:0 6px; }
+        .module-meta .meta-label { color:#1a2e6e; }
 
         .sweep {
           position:absolute; top:0; left:-30%; width:30%; height:100%;
@@ -406,8 +436,13 @@ export default function DashboardPage() {
                   onClick={() => { setActiveTab(key); setSidebarOpen(false); setSweepKey(k => k + 1) }}
                 >
                   <Icon className="nav-icon" style={{ width:"16px", height:"16px" }}/>
-                  <span className="nav-label">{meta.label}</span>
-                  <span className="nav-index">{String(i + 1).padStart(2, "0")}</span>
+                  <div className="nav-body">
+                    <div className="nav-top-row">
+                      <span className="nav-label">{meta.label}</span>
+                      <span className="nav-index">{String(i + 1).padStart(2, "0")}</span>
+                    </div>
+                    {meta.badge && <span className="nav-badge">{meta.badge}</span>}
+                  </div>
                 </button>
               )
             })}
@@ -436,7 +471,19 @@ export default function DashboardPage() {
             <div className="sweep" key={sweepKey}/>
 
             <div className="module-meta">
-              {isInfoTab ? "Reference · Info" : `Module ${String(visibleTabs.indexOf(activeTab as ModuleKey) + 1).padStart(2, "0")} · ${active!.label}`}
+              {isInfoTab ? (
+                <>
+                  <span className="meta-index">Reference</span>
+                  <span className="meta-sep">·</span>
+                  <span className="meta-label">Info</span>
+                </>
+              ) : (
+                <>
+                  <span className="meta-index">Module {String(visibleTabs.indexOf(activeTab as ModuleKey) + 1).padStart(2, "0")}</span>
+                  <span className="meta-sep">·</span>
+                  <span className="meta-label">{active!.label}</span>
+                </>
+              )}
             </div>
 
             {/* Module header */}
@@ -478,6 +525,10 @@ export default function DashboardPage() {
 
             {activeTab === "diabetes-check-track" && (
               <DiabetesCheckTrackSection userRole={userRole} />
+            )}
+
+            {activeTab === "sugar-sense" && (
+              <SugarSenseSection userRole={userRole} />
             )}
 
             {activeTab === "antibiotics-check" && (

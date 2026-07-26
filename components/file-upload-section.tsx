@@ -70,7 +70,9 @@ const DEFAULT_KEYWORDS = [
   "INCOMPA",
   "JUMP",
   "BREAK",
-  "BUMP"
+  "BUMP",
+  "NALOXONE",
+  "NALAXONE"
   // "ERROR",
   // "CODE",
   // "CHANGE",

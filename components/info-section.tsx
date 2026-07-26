@@ -2,7 +2,7 @@
 
 import type React from "react"
 import {
-  FileText, Pill, ClipboardList, Droplet, Activity, Syringe, HeartPulse,
+  FileText, Pill, ClipboardList, Droplet, Activity, Syringe, HeartPulse, Candy,
 } from "lucide-react"
 
 interface ModuleInfo {
@@ -16,6 +16,120 @@ interface ModuleInfo {
 }
 
 const MODULES: ModuleInfo[] = [
+  {
+    key: "antibiotics-check",
+    label: "Antibiotics Stewardship",
+    icon: Syringe,
+    roles: ["Admin"],
+    inputFiles: [{ name: "1 PDF file", hint: "Resident order report (with Category, Status, and Revision Date columns)" }],
+    conditions: [
+      "Flags orders through two independent paths — a resident can be flagged by either, and both can appear in the same report.",
+      "Path 1 (Urinary/UTI/sepsis/bacteremia clusters): finds antibiotic orders by matching the order text against a built-in list of common antibiotic drug names (generic and brand).",
+      "Drops orders that are topical (applied to the skin) or are actually vaccines (e.g. Prevnar, Comirnaty), even if the drug name would otherwise match.",
+      "Only looks at residents who have 2 or more antibiotic orders.",
+      "Groups a resident's antibiotic orders into clusters where each order is at least 3 days after the one before it — orders closer together than that aren't treated as separate episodes.",
+      "Within each cluster, only keeps the orders whose text mentions a urinary/UTI, sepsis, or bacteremia infection.",
+      "A cluster is only flagged if it still has 2 or more of those infection-related orders left after that filter.",
+      "Path 2 (Wound-related orders): finds any order whose text mentions \"wound\", with no minimum order count and no 3+ day gap requirement — a single wound-related order is enough to be flagged.",
+      "For this path, the topical-route exclusion used in Path 1 does not apply, since most legitimate wound orders are applied topically.",
+      "The only exclusion for wound orders is if the order is for a basic wound-care/dressing product — Bacitracin, Betadine, Dakin's (also matches \"Dakins\" without the apostrophe), Iodosorb, or Metronidazole — which are dropped since they're not treated as antibiotics of concern for this check.",
+    ],
+    parameters: [
+      "No manual keyword selection — the antibiotic name list, the infection-condition list, and the wound-exclusion list are all built in and not user-editable.",
+      "Path 1 only flags orders tied to urinary tract infections/UTI, sepsis, or bacteremia; other infection types aren't checked.",
+      "Path 2 flags any order mentioning \"wound\", excluding Bacitracin, Betadine, Dakin's/Dakins, Iodosorb, and Metronidazole orders.",
+      "This module doesn't report a resident's location or admission date — both are left blank in the results.",
+    ],
+  },
+  {
+    key: "bgm-compliance",
+    label: "BGM Compliance Review",
+    icon: Droplet,
+    roles: ["Admin"],
+    inputFiles: [
+      { name: "Diagnosis PDF", hint: "Resident diagnosis / condition record" },
+      { name: "Blood Sugar PDF", hint: "Blood Glucose Monitor (BGM) readings log" },
+    ],
+    conditions: [
+      "Both the Diagnosis PDF and Blood Sugar PDF must be uploaded before processing can start.",
+      "Looks for diabetes diagnoses in the Diagnosis PDF — specifically ICD-10 codes E08–E11 (the codes used for Type 1/Type 2 diabetes and related conditions).",
+      "Looks for blood sugar readings in the BGM log PDF — it can read either a bulk multi-resident table or a one-resident-per-report format, and combines both if present.",
+      "Matches residents between the two files by name (not ID), so small spacing or capitalization differences don't cause a missed match.",
+      "A resident is flagged if they have a qualifying diabetes diagnosis but zero recorded BGM readings — either because they're missing entirely from the blood sugar log, or they're listed there with no readings at all.",
+      "Residents with at least one recorded reading are treated as compliant and left out of the results.",
+      "Each flagged resident's entries list their diabetes diagnoses (not their blood sugar readings) — the diagnosis text, its date, and its rank/classification (e.g. Primary, Secondary, Dx 4).",
+    ],
+    parameters: [
+      "No manual keyword selection — matching is driven entirely by cross-referencing diagnosis codes against BGM log entries.",
+      "Only ICD-10 codes E08, E09, E10, and E11 count as a qualifying diabetes diagnosis; other diagnoses on the same resident are ignored.",
+    ],
+  },
+  {
+    key: "diabetes-check-track",
+    label: "Diabetes Check and Track",
+    icon: Activity,
+    roles: ["Admin"],
+    inputFiles: [
+      { name: "Medication PDF", hint: "eMAR / medication administration record" },
+      { name: "Diagnosis PDF", hint: "Resident diagnosis / condition record" },
+      { name: "Blood Sugar PDF", hint: "Blood Glucose Monitor (BGM) readings log" },
+    ],
+    conditions: [
+      "All three files (Medication, Diagnosis, Blood Sugar) must be uploaded before processing can start.",
+      "Starts from the Medication PDF — an Order Summary already filtered to Medication Class: ANTIDIABETICS — so every resident listed there is confirmed to be on a diabetes medication.",
+      "Skips Empagliflozin (Jardiance) orders as evidence, since it's often prescribed for heart failure or kidney disease rather than diabetes, so its presence alone shouldn't count toward flagging.",
+      "For each resident on antidiabetic medication, checks two things independently: do they have a matching diabetes diagnosis (ICD-10 E08–E11) on file, and do they have any glucose readings on file?",
+      "A resident is flagged if EITHER check fails — missing diagnosis, missing readings, or both — not just missing readings.",
+      "If the diagnosis is missing, the flagged entries list their medication orders as evidence. If readings are missing, the entries list their diagnoses (or medications, if there's no diagnosis either).",
+      "Residents fully covered — on medication, with a diagnosis on file, and with recorded readings — are left out of the results.",
+    ],
+    parameters: [
+      "No manual keyword selection — the Medication PDF (pre-filtered to ANTIDIABETICS) is the starting list; diagnosis and blood sugar files are checked against it.",
+      "Only ICD-10 codes E08–E11 count as a qualifying diabetes diagnosis.",
+      "Residents are matched across all three files by name (not ID).",
+    ],
+  },
+  {
+    key: "medication",
+    label: "Medication Availability",
+    icon: Pill,
+    roles: ["Admin"],
+    inputFiles: [{ name: "1 PDF file", hint: "Same PDF/format as Progress Notes (eMAR)" }],
+    conditions: [
+      "Looks for entries in the PDF where the type is \"Default PN Type for eMAR\".",
+      "Only keeps entries that clearly describe a medication (mentions things like tablet, capsule, mg, dose, injection, insulin, etc.) and are long enough to be a real note — very short entries are skipped.",
+      "Skips sliding-scale entries, \"as needed\" (PRN) entries, and conditional hold instructions (e.g. \"Hold for SBP < 100\"), since these aren't true duplicates.",
+      "Groups entries for the same resident that start with the same note text.",
+      "If two entries in the same group happen within 3 hours of each other, they're treated as one routine administration and dropped rather than counted as a duplicate.",
+      "A medication is only flagged as repeated/duplicate if more than one entry is left after that 3-hour check.",
+    ],
+    parameters: [
+      "No keyword selection — the check always looks for note type \"Default PN Type for eMAR\".",
+      "Entries are matched to the same group by resident name plus the start of the note text (first 80 characters, cleaned up and lowercased).",
+      "No admin/viewer distinction on this module — same logic runs for every role.",
+    ],
+  },
+  {
+    key: "order-listing",
+    label: "Order Listing",
+    icon: ClipboardList,
+    roles: ["Admin"],
+    inputFiles: [{ name: "1 PDF file", hint: "Order Listing / physician orders report" }],
+    conditions: [
+      "Splits the PDF into one row per resident by finding name patterns like \"Lastname, Firstname (12345)\" — works whether names are ALL CAPS or Title Case.",
+      "Everything between one resident's name and the next becomes that row's order details.",
+      "Reads the order status for each row: Active, Completed, or Discontinued (shown as N/A if none of those words are found).",
+      "Only keeps a row if there's real order text left after removing the status, category, dates, and Y/N flags — very short leftovers are skipped.",
+      "Matches keywords as whole words only, so a keyword won't match text buried inside another word — except \"RAY\", which is also allowed to match \"Xray\"/\"X-ray\".",
+      "\"1:1\" won't match if it's immediately followed by another digit, so times like 1:15 aren't picked up.",
+      "When exporting, two rows are only treated as duplicates if they came from the exact same spot in the PDF — so two separate orders that happen to read identically (e.g. the same X-ray ordered twice) are both kept, not merged.",
+    ],
+    parameters: [
+      "32 default keywords (e.g. RAY, CXR, ULTRA, EKG, FALL, FRACT, WANDER, ELOP, SUI, DNR, SMOK…) — all turned on by default.",
+      "Admins can turn keywords on/off; Viewers always search the full default list.",
+      "Unlike Progress Notes, this module doesn't capture a resident's location — only name, order status, and dates.",
+    ],
+  },
   {
     key: "progress",
     label: "Progress Notes",
@@ -70,117 +184,29 @@ const MODULES: ModuleInfo[] = [
     ],
   },
   {
-    key: "medication",
-    label: "Medication Availability",
-    icon: Pill,
-    roles: ["Admin"],
-    inputFiles: [{ name: "1 PDF file", hint: "Same PDF/format as Progress Notes (eMAR)" }],
-    conditions: [
-      "Looks for entries in the PDF where the type is \"Default PN Type for eMAR\".",
-      "Only keeps entries that clearly describe a medication (mentions things like tablet, capsule, mg, dose, injection, insulin, etc.) and are long enough to be a real note — very short entries are skipped.",
-      "Skips sliding-scale entries, \"as needed\" (PRN) entries, and conditional hold instructions (e.g. \"Hold for SBP < 100\"), since these aren't true duplicates.",
-      "Groups entries for the same resident that start with the same note text.",
-      "If two entries in the same group happen within 3 hours of each other, they're treated as one routine administration and dropped rather than counted as a duplicate.",
-      "A medication is only flagged as repeated/duplicate if more than one entry is left after that 3-hour check.",
-    ],
-    parameters: [
-      "No keyword selection — the check always looks for note type \"Default PN Type for eMAR\".",
-      "Entries are matched to the same group by resident name plus the start of the note text (first 80 characters, cleaned up and lowercased).",
-      "No admin/viewer distinction on this module — same logic runs for every role.",
-    ],
-  },
-  {
-    key: "order-listing",
-    label: "Order Listing",
-    icon: ClipboardList,
-    roles: ["Admin"],
-    inputFiles: [{ name: "1 PDF file", hint: "Order Listing / physician orders report" }],
-    conditions: [
-      "Splits the PDF into one row per resident by finding name patterns like \"Lastname, Firstname (12345)\" — works whether names are ALL CAPS or Title Case.",
-      "Everything between one resident's name and the next becomes that row's order details.",
-      "Reads the order status for each row: Active, Completed, or Discontinued (shown as N/A if none of those words are found).",
-      "Only keeps a row if there's real order text left after removing the status, category, dates, and Y/N flags — very short leftovers are skipped.",
-      "Matches keywords as whole words only, so a keyword won't match text buried inside another word — except \"RAY\", which is also allowed to match \"Xray\"/\"X-ray\".",
-      "\"1:1\" won't match if it's immediately followed by another digit, so times like 1:15 aren't picked up.",
-      "When exporting, two rows are only treated as duplicates if they came from the exact same spot in the PDF — so two separate orders that happen to read identically (e.g. the same X-ray ordered twice) are both kept, not merged.",
-    ],
-    parameters: [
-      "32 default keywords (e.g. RAY, CXR, ULTRA, EKG, FALL, FRACT, WANDER, ELOP, SUI, DNR, SMOK…) — all turned on by default.",
-      "Admins can turn keywords on/off; Viewers always search the full default list.",
-      "Unlike Progress Notes, this module doesn't capture a resident's location — only name, order status, and dates.",
-    ],
-  },
-  {
-    key: "bgm-compliance",
-    label: "BGM Compliance Review",
-    icon: Droplet,
-    roles: ["Admin"],
-    inputFiles: [
-      { name: "Diagnosis PDF", hint: "Resident diagnosis / condition record" },
-      { name: "Blood Sugar PDF", hint: "Blood Glucose Monitor (BGM) readings log" },
-    ],
-    conditions: [
-      "Both the Diagnosis PDF and Blood Sugar PDF must be uploaded before processing can start.",
-      "Looks for diabetes diagnoses in the Diagnosis PDF — specifically ICD-10 codes E08–E11 (the codes used for Type 1/Type 2 diabetes and related conditions).",
-      "Looks for blood sugar readings in the BGM log PDF — it can read either a bulk multi-resident table or a one-resident-per-report format, and combines both if present.",
-      "Matches residents between the two files by name (not ID), so small spacing or capitalization differences don't cause a missed match.",
-      "A resident is flagged if they have a qualifying diabetes diagnosis but zero recorded BGM readings — either because they're missing entirely from the blood sugar log, or they're listed there with no readings at all.",
-      "Residents with at least one recorded reading are treated as compliant and left out of the results.",
-      "Each flagged resident's entries list their diabetes diagnoses (not their blood sugar readings) — the diagnosis text, its date, and its rank/classification (e.g. Primary, Secondary, Dx 4).",
-    ],
-    parameters: [
-      "No manual keyword selection — matching is driven entirely by cross-referencing diagnosis codes against BGM log entries.",
-      "Only ICD-10 codes E08, E09, E10, and E11 count as a qualifying diabetes diagnosis; other diagnoses on the same resident are ignored.",
-    ],
-  },
-  {
-    key: "diabetes-check-track",
-    label: "Diabetes Check and Track",
-    icon: Activity,
+    key: "sugar-sense",
+    label: "Sugar Sense",
+    icon: Candy,
     roles: ["Admin"],
     inputFiles: [
       { name: "Medication PDF", hint: "eMAR / medication administration record" },
-      { name: "Diagnosis PDF", hint: "Resident diagnosis / condition record" },
-      { name: "Blood Sugar PDF", hint: "Blood Glucose Monitor (BGM) readings log" },
+      { name: "Order Listing Vitals PDF", hint: "Blood glucose / vitals order listing log" },
     ],
     conditions: [
-      "All three files (Medication, Diagnosis, Blood Sugar) must be uploaded before processing can start.",
+      "Both files (Medication, Order Listing Vitals) must be uploaded before processing can start.",
       "Starts from the Medication PDF — an Order Summary already filtered to Medication Class: ANTIDIABETICS — so every resident listed there is confirmed to be on a diabetes medication.",
       "Skips Empagliflozin (Jardiance) orders as evidence, since it's often prescribed for heart failure or kidney disease rather than diabetes, so its presence alone shouldn't count toward flagging.",
-      "For each resident on antidiabetic medication, checks two things independently: do they have a matching diabetes diagnosis (ICD-10 E08–E11) on file, and do they have any glucose readings on file?",
-      "A resident is flagged if EITHER check fails — missing diagnosis, missing readings, or both — not just missing readings.",
-      "If the diagnosis is missing, the flagged entries list their medication orders as evidence. If readings are missing, the entries list their diagnoses (or medications, if there's no diagnosis either).",
-      "Residents fully covered — on medication, with a diagnosis on file, and with recorded readings — are left out of the results.",
+      "Excludes any resident whose medication notes mention \"sliding scale\" — their blood sugar is expected to swing based on the sliding-scale dosing itself, so they're left out of the report entirely.",
+      "Excludes any resident whose medication notes mention \"subcutaneously\" — left out of the report entirely, the same as sliding-scale residents.",
+      "For every remaining resident, pulls their blood sugar readings from the Order Listing Vitals PDF — it can read either a bulk multi-resident table or a one-resident-per-report format, and combines both if present.",
+      "A resident is only included in the results if they have at least one blood sugar reading on file; residents with zero readings are left out.",
+      "Only the top 3 highest blood sugar readings on record are surfaced per resident — not every reading, and not the most recent ones.",
     ],
     parameters: [
-      "No manual keyword selection — the Medication PDF (pre-filtered to ANTIDIABETICS) is the starting list; diagnosis and blood sugar files are checked against it.",
-      "Only ICD-10 codes E08–E11 count as a qualifying diabetes diagnosis.",
-      "Residents are matched across all three files by name (not ID).",
-    ],
-  },
-  {
-    key: "antibiotics-check",
-    label: "Antibiotics Stewardship",
-    icon: Syringe,
-    roles: ["Admin"],
-    inputFiles: [{ name: "1 PDF file", hint: "Resident order report (with Category, Status, and Revision Date columns)" }],
-    conditions: [
-      "Flags orders through two independent paths — a resident can be flagged by either, and both can appear in the same report.",
-      "Path 1 (Urinary/UTI/sepsis/bacteremia clusters): finds antibiotic orders by matching the order text against a built-in list of common antibiotic drug names (generic and brand).",
-      "Drops orders that are topical (applied to the skin) or are actually vaccines (e.g. Prevnar, Comirnaty), even if the drug name would otherwise match.",
-      "Only looks at residents who have 2 or more antibiotic orders.",
-      "Groups a resident's antibiotic orders into clusters where each order is at least 3 days after the one before it — orders closer together than that aren't treated as separate episodes.",
-      "Within each cluster, only keeps the orders whose text mentions a urinary/UTI, sepsis, or bacteremia infection.",
-      "A cluster is only flagged if it still has 2 or more of those infection-related orders left after that filter.",
-      "Path 2 (Wound-related orders): finds any order whose text mentions \"wound\", with no minimum order count and no 3+ day gap requirement — a single wound-related order is enough to be flagged.",
-      "For this path, the topical-route exclusion used in Path 1 does not apply, since most legitimate wound orders are applied topically.",
-      "The only exclusion for wound orders is if the order is for a basic wound-care/dressing product — Bacitracin, Betadine, Dakin's (also matches \"Dakins\" without the apostrophe), Iodosorb, or Metronidazole — which are dropped since they're not treated as antibiotics of concern for this check.",
-    ],
-    parameters: [
-      "No manual keyword selection — the antibiotic name list, the infection-condition list, and the wound-exclusion list are all built in and not user-editable.",
-      "Path 1 only flags orders tied to urinary tract infections/UTI, sepsis, or bacteremia; other infection types aren't checked.",
-      "Path 2 flags any order mentioning \"wound\", excluding Bacitracin, Betadine, Dakin's/Dakins, Iodosorb, and Metronidazole orders.",
-      "This module doesn't report a resident's location or admission date — both are left blank in the results.",
+      "No manual keyword selection — the Medication PDF (pre-filtered to ANTIDIABETICS) is the starting list; the vitals file is checked against it.",
+      "Exclusion terms — \"sliding scale\" and \"subcutaneously\" — are matched case-insensitively anywhere in a resident's medication notes and are not user-editable.",
+      "Residents are matched across both files by name (not ID).",
+      "Ranking is by reading value (highest first), capped at 3 entries per resident.",
     ],
   },
   {
@@ -219,8 +245,8 @@ function InfoCard({ mod, index }: { mod: ModuleInfo; index: number }) {
           <Icon style={{ width: "18px", height: "18px", color: "#fbbf24" }} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: "10px", fontWeight: 600, color: "#9ca3af", letterSpacing: "0.08em" }}>MODULE {String(index + 1).padStart(2, "0")}</span>
-          <h3 style={{ fontFamily: "'Instrument Serif',Georgia,serif", fontSize: "19px", color: "#111827", lineHeight: 1.15 }}>{mod.label}</h3>
+          <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: "10px", fontWeight: 700, color: "#b8860b", letterSpacing: "0.08em" }}>MODULE {String(index + 1).padStart(2, "0")}</span>
+          <h3 style={{ fontFamily: "'Instrument Serif',Georgia,serif", fontSize: "19px", color: "#1a2e6e", lineHeight: 1.15 }}>{mod.label}</h3>
         </div>
         <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
           {mod.roles.map((role) => (
