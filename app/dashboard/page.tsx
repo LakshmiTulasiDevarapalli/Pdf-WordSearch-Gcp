@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import {
   LogOut, FileSearch, FileText, Pill, ClipboardList,
-  Droplet, Activity, Syringe, Menu, X, HeartPulse,
+  Droplet, Activity, Syringe, Menu, X, HeartPulse, Info,
 } from "lucide-react"
 import { FileUploadSection } from "@/components/file-upload-section"
 import { MedicationSection } from "@/components/medication-section"
@@ -15,6 +15,7 @@ import { BGMComplianceSection } from "@/components/bgm-compliance-section"
 import { DiabetesCheckTrackSection } from "@/components/diabetes-check-track-section"
 import { AntibioticsCheckSection } from "@/components/antibiotics-check-section"
 import { VitalExceptionReportSection } from "@/components/vital-exception-report-section"
+import { InfoSection } from "@/components/info-section"
 import { SettingsDropdown } from "@/components/settings-dropdown"
 import { supabase } from "@/lib/supabase"
 import { recordAuditEvent } from "@/lib/login-audit"
@@ -56,9 +57,10 @@ function ParticleCanvas() {
   return <canvas ref={canvasRef} style={{position:"fixed",inset:0,width:"100%",height:"100%",zIndex:0}}/>
 }
 
-type TabKey = "progress" | "medication" | "order-listing" | "bgm-compliance" | "diabetes-check-track" | "antibiotics-check" | "vital-exception-report"
+type ModuleKey = "progress" | "medication" | "order-listing" | "bgm-compliance" | "diabetes-check-track" | "antibiotics-check" | "vital-exception-report"
+type TabKey = ModuleKey | "info"
 
-const TAB_META: Record<TabKey, { label: string; icon: React.ComponentType<{ style?: React.CSSProperties; className?: string }>; description: string; adminOnly: boolean }> = {
+const TAB_META: Record<ModuleKey, { label: string; icon: React.ComponentType<{ style?: React.CSSProperties; className?: string }>; description: string; adminOnly: boolean }> = {
   "progress": {
     label: "Progress Notes",
     icon: FileText,
@@ -103,7 +105,7 @@ const TAB_META: Record<TabKey, { label: string; icon: React.ComponentType<{ styl
   },
 }
 
-const TAB_ORDER: TabKey[] = ["progress", "medication", "order-listing", "bgm-compliance", "diabetes-check-track", "antibiotics-check", "vital-exception-report"]
+const TAB_ORDER: ModuleKey[] = ["antibiotics-check", "bgm-compliance", "diabetes-check-track", "medication", "order-listing", "progress", "vital-exception-report"]
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -133,12 +135,20 @@ export default function DashboardPage() {
     router.push("/login")
   }
 
+  const isAdmin = userRole?.toLowerCase() === "admin"
+
+  useEffect(() => {
+    if (authChecked && activeTab === "info" && !isAdmin) {
+      setActiveTab("progress")
+    }
+  }, [authChecked, isAdmin, activeTab])
+
   if (!authChecked) return null
 
-  const isAdmin = userRole?.toLowerCase() === "admin"
   const visibleTabs = TAB_ORDER.filter(key => !TAB_META[key].adminOnly || isAdmin)
-  const active = TAB_META[activeTab]
-  const ActiveIcon = active.icon
+  const isInfoTab = activeTab === "info" && isAdmin
+  const active = isInfoTab ? null : (TAB_META[activeTab as ModuleKey] ?? TAB_META.progress)
+  const ActiveIcon = active ? active.icon : Info
 
   // Initials avatar
   const initials = userEmail ? userEmail.slice(0, 2).toUpperCase() : "??"
@@ -402,6 +412,22 @@ export default function DashboardPage() {
               )
             })}
           </div>
+
+          {isAdmin && (
+            <>
+              <div className="sidebar-eyebrow" style={{ marginTop:"18px" }}>Reference</div>
+              <div className="sidebar-nav">
+                <button
+                  type="button"
+                  className={`sidebar-nav-btn ${activeTab === "info" ? "active" : ""}`}
+                  onClick={() => { setActiveTab("info"); setSidebarOpen(false); setSweepKey(k => k + 1) }}
+                >
+                  <Info className="nav-icon" style={{ width:"16px", height:"16px" }}/>
+                  <span className="nav-label">Info</span>
+                </button>
+              </div>
+            </>
+          )}
         </nav>
 
         {/* Main Content */}
@@ -410,7 +436,7 @@ export default function DashboardPage() {
             <div className="sweep" key={sweepKey}/>
 
             <div className="module-meta">
-              Module {String(visibleTabs.indexOf(activeTab) + 1).padStart(2, "0")} · {active.label}
+              {isInfoTab ? "Reference · Info" : `Module ${String(visibleTabs.indexOf(activeTab as ModuleKey) + 1).padStart(2, "0")} · ${active!.label}`}
             </div>
 
             {/* Module header */}
@@ -420,9 +446,13 @@ export default function DashboardPage() {
               </div>
               <div>
                 <h1 style={{ fontFamily:"'Instrument Serif',Georgia,serif", fontSize:"clamp(20px,2.4vw,27px)", lineHeight:1.15, marginBottom:"4px" }}>
-                  <span className="shimmer-text">{active.label}</span>
+                  <span className="shimmer-text">{isInfoTab ? "Info" : active!.label}</span>
                 </h1>
-                <p style={{ fontSize:"13px", color:"#9ca3af", maxWidth:"560px" }}>{active.description}</p>
+                <p style={{ fontSize:"13px", color:"#9ca3af", maxWidth:"560px" }}>
+                  {isInfoTab
+                    ? "Input file requirements, sample data, and the conditions & parameters each module uses."
+                    : active!.description}
+                </p>
               </div>
             </div>
 
@@ -456,6 +486,10 @@ export default function DashboardPage() {
 
             {activeTab === "vital-exception-report" && (
               <VitalExceptionReportSection userRole={userRole} />
+            )}
+
+            {isInfoTab && (
+              <InfoSection />
             )}
           </div>
         </main>

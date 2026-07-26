@@ -7,6 +7,7 @@ import { Download, Upload, CheckCircle2, AlertCircle, Pill } from "lucide-react"
 interface AntibioticsCheckGroup {
   duplicateNoteText: string
   entries: { effectiveDate: string; noteText: string }[]
+  type?: "condition" | "wound"
 }
 
 interface AntibioticsCheckResult {
@@ -305,7 +306,9 @@ export function AntibioticsCheckSection({ userRole }: AntibioticsCheckSectionPro
                     <div key={gi} style={{ borderRadius: "10px", border: "1px solid rgba(201,168,76,0.2)", overflow: "hidden" }}>
                       <div style={{ padding: "8px 12px", background: "rgba(201,168,76,0.08)", borderBottom: "1px solid rgba(201,168,76,0.2)" }}>
                         <span style={{ fontSize: "10px", fontWeight: 700, color: "#92400e", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                          {result.groups.length > 1 ? "Issue " + (gi+1) + ": " : "Compliance Issue: "}
+                          {group.type === "wound"
+                            ? "Wound-Related: "
+                            : (result.groups.length > 1 ? "Issue " + (gi+1) + ": " : "Compliance Issue: ")}
                         </span>
                         <span style={{ fontSize: "12px", color: "#374151", fontFamily: "'DM Sans',sans-serif" }}>{group.duplicateNoteText}</span>
                       </div>

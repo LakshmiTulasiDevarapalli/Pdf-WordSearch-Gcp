@@ -128,10 +128,25 @@ function buildEntriesTable(
     })),
   }))
 
+  // Tracks the previous row's resident so we can detect exactly where a
+  // new resident's block of records starts within this combined table.
+  let previousResidentId: string | undefined
+
   entries.forEach((entry, idx) => {
-    const shading = idx % 2 === 0
-      ? { type: ShadingType.SOLID, color: ROW_ALT }
-      : { type: ShadingType.CLEAR, color: WHITE }
+    // In the combined (residentColumn) table, entries arrive grouped by
+    // resident (see the flatMap that builds this array), so a change in
+    // residentId from the row above always marks the first record of a
+    // new resident's block. Highlight that row distinctly so it's easy to
+    // see at a glance where one resident's records end and the next
+    // begins, instead of relying only on the resident name/ID text.
+    const isFirstForResident = residentColumn && entry.residentId !== previousResidentId
+    if (residentColumn) previousResidentId = entry.residentId
+
+    const shading = isFirstForResident
+      ? { type: ShadingType.SOLID, color: LIGHT_GOLD }
+      : idx % 2 === 0
+        ? { type: ShadingType.SOLID, color: ROW_ALT }
+        : { type: ShadingType.CLEAR, color: WHITE }
 
     const cells: TableCell[] = [
       new TableCell({

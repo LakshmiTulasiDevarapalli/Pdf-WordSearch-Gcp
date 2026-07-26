@@ -20,8 +20,11 @@ interface MultiSelectProps {
   onChange: (selected: string[]) => void
 }
 
+const VISIBLE_BADGE_LIMIT = 12
+
 export function MultiSelect({ options, selected, onChange }: MultiSelectProps) {
   const [open, setOpen] = useState(false)
+  const [expanded, setExpanded] = useState(false)
 
   const handleSelect = (option: string) => {
     if (selected.includes(option)) {
@@ -94,22 +97,38 @@ export function MultiSelect({ options, selected, onChange }: MultiSelectProps) {
       </Popover>
 
       {selected.length > 0 && (
-        <div style={{display:"flex",flexWrap:"wrap",gap:"8px"}}>
-          {selected.map((option) => (
-            <span key={option} style={{
-              display:"inline-flex",alignItems:"center",gap:"5px",
-              fontFamily:"'DM Sans',sans-serif",fontSize:"12px",fontWeight:600,
-              color:"#374151",background:"rgba(26,46,110,0.07)",
-              border:"1px solid rgba(26,46,110,0.12)",
-              borderRadius:"6px",padding:"3px 8px",
-            }}>
-              {option}
-              <button type="button" onClick={() => handleRemove(option)}
-                style={{background:"none",border:"none",cursor:"pointer",padding:0,display:"flex",alignItems:"center",color:"#9ca3af",lineHeight:1}}>
-                <X style={{width:"11px",height:"11px"}}/>
-              </button>
-            </span>
-          ))}
+        <div className="space-y-2">
+          <div style={{display:"flex",flexWrap:"wrap",gap:"8px"}}>
+            {(expanded ? selected : selected.slice(0, VISIBLE_BADGE_LIMIT)).map((option) => (
+              <span key={option} style={{
+                display:"inline-flex",alignItems:"center",gap:"5px",
+                fontFamily:"'DM Sans',sans-serif",fontSize:"12px",fontWeight:600,
+                color:"#374151",background:"rgba(26,46,110,0.07)",
+                border:"1px solid rgba(26,46,110,0.12)",
+                borderRadius:"6px",padding:"3px 8px",
+              }}>
+                {option}
+                <button type="button" onClick={() => handleRemove(option)}
+                  style={{background:"none",border:"none",cursor:"pointer",padding:0,display:"flex",alignItems:"center",color:"#9ca3af",lineHeight:1}}>
+                  <X style={{width:"11px",height:"11px"}}/>
+                </button>
+              </span>
+            ))}
+          </div>
+          {selected.length > VISIBLE_BADGE_LIMIT && (
+            <button
+              type="button"
+              onClick={() => setExpanded((prev) => !prev)}
+              style={{
+                fontFamily:"'DM Sans',sans-serif",fontSize:"12px",fontWeight:600,
+                color:"#4c1d95",background:"none",border:"none",cursor:"pointer",
+                padding:0,display:"flex",alignItems:"center",gap:"4px",
+              }}
+            >
+              {expanded ? "Show less" : `+${selected.length - VISIBLE_BADGE_LIMIT} more`}
+              <ChevronDown style={{width:"12px",height:"12px",transform: expanded ? "rotate(180deg)" : "none",transition:"transform .15s"}}/>
+            </button>
+          )}
         </div>
       )}
     </div>

@@ -13,6 +13,9 @@ interface AntibioticsEntry {
 interface AntibioticsGroup {
   duplicateNoteText: string
   entries: AntibioticsEntry[]
+  // "condition"  -> existing Urinary/UTI/sepsis/bacteremia clusters (3+ days apart)
+  // "wound"      -> new wound-related orders, no day-gap requirement
+  type?: "condition" | "wound"
 }
 
 interface AntibioticsCheckResult {
@@ -31,6 +34,7 @@ interface OrderLine {
   revisionDate: string
   lastOrderDate: string | null
   reorder: string
+  isWound: boolean
 }
 
 interface ResidentOrders {
@@ -127,6 +131,36 @@ function matchesCondition(orderSummary: string): boolean {
   })
 }
 
+// ── Wound path (separate OR condition, no 3+ day gap requirement) ──
+// Any order whose text references "wound" is retrieved for the export
+// report as-is — there is no clustering / day-gap requirement for this
+// path. The only exclusion is if the order is a basic wound-care topical
+// product (Bacitracin, Betadine, Dakin's, Iodosorb, Metronidazole) rather than a true
+// antibiotic treatment; those are dropped. Because these products are wound
+// dressing/antiseptic products rather than systemic antibiotics of concern,
+// they're excluded even though "topically" (the general EXCLUDE_KEYWORDS
+// exclusion used by the condition path) does NOT apply here.
+function isWoundOrder(orderSummary: string): boolean {
+  const pattern = /\bwound\b/i
+  return pattern.test(orderSummary)
+}
+
+// Regexes instead of plain keyword+\b pairs, since "dakin" needs to match
+// "Dakin", "Dakins", and "Dakin's" — a trailing \b after "dakin" never
+// matches "Dakins" because "n" and "s" are both word characters with no
+// boundary between them.
+const WOUND_EXCLUDE_PATTERNS = [
+  /\bbacitracin\b/i,
+  /\bbetadine\b/i,
+  /\bdakin'?s?\b/i,
+  /\biodosorb\b/i,
+  /\bmetronidazole\b/i,
+]
+
+function isWoundExcludedOrder(orderSummary: string): boolean {
+  return WOUND_EXCLUDE_PATTERNS.some((pattern) => pattern.test(orderSummary))
+}
+
 // Pulls a short display name off the front of the order summary, e.g.
 // "Cefdinir Oral Capsule 300 MG (Cefdinir) Give 1 capsule..." -> the part
 // before the administration verb ("Give", "Apply", etc).
@@ -169,13 +203,14 @@ export async function POST(request: NextRequest) {
     const results: AntibioticsCheckResult[] = []
 
     for (const resident of residents) {
-      // Only orders that match a known antibiotic name
+      // ── Path 1: Urinary/UTI/sepsis/bacteremia clusters, 3+ days apart ──
+      // Only orders that match a known antibiotic name (excludes wound rows,
+      // which follow their own path below with no day-gap requirement).
       const antibioticOrders = resident.orders
+        .filter((o) => !o.isWound)
         .map((o) => ({ o, date: parseOrderDate(o.revisionDate) }))
         .filter((x): x is { o: OrderLine; date: Date } => x.date !== null)
         .sort((a, b) => a.date.getTime() - b.date.getTime())
-
-      if (antibioticOrders.length < 2) continue
 
       // Cluster orders where each is 3 OR MORE days apart from the previous
       // one — a 0/1/2-day gap does NOT count, but 3 days or any larger gap does.
@@ -197,17 +232,14 @@ export async function POST(request: NextRequest) {
       }
       if (current.length >= 2) clusters.push(current)
 
-      // Only clusters with 2+ antibiotic orders 3+ days apart are flagged
-      const flaggedClusters = clusters
-      if (flaggedClusters.length === 0) continue
-
       // Within each flagged cluster, only keep the orders that relate to
       // Urinary/UTI/sepsis/bacteremia — everything else is dropped entirely
       // so it never reaches the screen results or the export.
-      const groups = flaggedClusters
+      const conditionGroups = clusters
         .map((cluster) => {
           const matched = cluster.filter(({ o }) => matchesCondition(o.orderSummary))
           return {
+            type: "condition" as const,
             duplicateNoteText:
               matched.length + " of " + cluster.length +
               " antibiotic order" + (cluster.length !== 1 ? "s" : "") +
@@ -220,9 +252,36 @@ export async function POST(request: NextRequest) {
         })
         .filter((group) => group.entries.length >= 2)
 
-      if (groups.length === 0) continue
+      // ── Path 2: wound-related orders — OR condition, no day-gap needed ──
+      // Any order whose text references "wound" is retrieved as-is; the
+      // only exclusion is Bacitracin/Betadine/Dakin's/Iodosorb/Metronidazole, already
+      // applied at parse time (isWoundExcludedOrder), so every isWound row
+      // that reached resident.orders is retrieved here.
+      const woundEntries = resident.orders
+        .filter((o) => o.isWound)
+        .sort((a, b) => {
+          const da = parseOrderDate(a.revisionDate)
+          const db = parseOrderDate(b.revisionDate)
+          if (da && db) return da.getTime() - db.getTime()
+          return 0
+        })
+        .map((o) => ({
+          effectiveDate: o.revisionDate,
+          noteText: o.orderSummary + " — " + o.status + (o.category ? " · " + o.category : ""),
+        }))
 
-      const totalFlaggedOrders = groups.reduce((s, g) => s + g.entries.length, 0)
+      const groups: AntibioticsGroup[] = [...conditionGroups]
+      if (woundEntries.length > 0) {
+        groups.push({
+          type: "wound",
+          duplicateNoteText:
+            woundEntries.length + " wound-related order" + (woundEntries.length !== 1 ? "s" : "") +
+            " found — no 3+ day gap requirement applies to wound orders.",
+          entries: woundEntries,
+        })
+      }
+
+      if (groups.length === 0) continue
 
       results.push({
         residentName: resident.residentName + " (" + resident.residentId + ")",
@@ -230,11 +289,6 @@ export async function POST(request: NextRequest) {
         admissionDate: "",
         groups,
       })
-
-    //   console.log(
-    //     "  -> " + resident.residentName + ": " + flaggedClusters.length +
-    //     " flagged cluster(s), " + totalFlaggedOrders + " order(s)"
-    //   )
     }
 
     //console.log("[antibiotics-check] Residents flagged: " + results.length)
@@ -330,10 +384,20 @@ function parseOrderReportPDF(text: string): ResidentOrders[] {
 
     const orderSummary = segment.slice(0, lineMatch.index).trim()
 
-    if (isExcludedOrder(orderSummary)) continue // e.g. topical-route orders, vaccine orders — never antibiotics for this check
+    const isWound = isWoundOrder(orderSummary)
 
-    const antibioticKeyword = isAntibioticOrder(orderSummary)
-    if (!antibioticKeyword) continue // only keep rows that are actually antibiotic orders
+    if (isWound) {
+      // Wound path: the only exclusion is a basic wound-care topical
+      // product (Bacitracin/Betadine/Dakin's/Iodosorb/Metronidazole) — the general
+      // "topically"/vaccine exclusion list does NOT apply here, since most
+      // legitimate wound orders are administered topically.
+      if (isWoundExcludedOrder(orderSummary)) continue
+    } else {
+      if (isExcludedOrder(orderSummary)) continue // e.g. topical-route orders, vaccine orders — never antibiotics for this check
+
+      const antibioticKeyword = isAntibioticOrder(orderSummary)
+      if (!antibioticKeyword) continue // only keep rows that are actually antibiotic orders
+    }
 
     const key = normalizeName(lastName + ", " + firstName) + "|" + residentId
     if (!residentsByKey.has(key)) {
@@ -352,6 +416,7 @@ function parseOrderReportPDF(text: string): ResidentOrders[] {
       revisionDate: lineMatch[3],
       lastOrderDate: lineMatch[4] || null,
       reorder: lineMatch[5] || "N/A",
+      isWound,
     })
   }
 

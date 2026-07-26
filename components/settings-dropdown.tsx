@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Settings, Users, ChevronRight, ClipboardList } from "lucide-react"
+import { Settings, Users, ChevronRight, ClipboardList, FolderOpen } from "lucide-react"
 import Link from "next/link"
 
 export function SettingsDropdown() {
@@ -20,6 +20,7 @@ export function SettingsDropdown() {
 
   const menuItems = [
     { href: "/dashboard/users",       icon: Users,          label: "Users" },
+    { href: "/dashboard/files",       icon: FolderOpen,     label: "Files" },
     { href: "/dashboard/login-audit", icon: ClipboardList,  label: "Login Audit" },
   ]
 

@@ -15,6 +15,9 @@ interface AntibioticsEntry {
 interface AntibioticsGroup {
   duplicateNoteText: string
   entries: AntibioticsEntry[]
+  // "condition" -> Urinary/UTI/sepsis/bacteremia clusters (3+ days apart)
+  // "wound"     -> wound-related orders, no day-gap requirement
+  type?: "condition" | "wound"
 }
 
 interface AntibioticsCheckResult {
@@ -43,14 +46,50 @@ function matchesCondition(noteText: string): boolean {
   })
 }
 
-// Filters a full result set down to only entries that reference one of the
-// CONDITION_KEYWORDS, dropping any group or resident left with no matching
-// entries.
+// ── Wound path (separate OR condition, no 3+ day gap requirement) ──
+// Entries in a "wound" group are retrieved as-is with no clustering/day-gap
+// requirement. The only exclusion is a basic wound-care topical product
+// (Bacitracin/Betadine/Dakin's/Iodosorb/Metronidazole) — already applied by the search
+// route, this is kept here defensively in case the export is ever called
+// with unfiltered data from another caller.
+// Regexes instead of plain keyword+\b pairs, since "dakin" needs to match
+// "Dakin", "Dakins", and "Dakin's" — a trailing \b after "dakin" never
+// matches "Dakins" because "n" and "s" are both word characters with no
+// boundary between them.
+const WOUND_EXCLUDE_PATTERNS = [
+  /\bbacitracin\b/i,
+  /\bbetadine\b/i,
+  /\bdakin'?s?\b/i,
+  /\biodosorb\b/i,
+  /\bmetronidazole\b/i,
+]
+
+function isWoundExcludedNote(noteText: string): boolean {
+  return WOUND_EXCLUDE_PATTERNS.some((pattern) => pattern.test(noteText))
+}
+
+// Filters a full result set down to what should actually be exported:
+// - "condition" groups: only entries referencing Urinary/UTI/sepsis/bacteremia,
+//   and only kept if 2+ entries remain (matches the 3+ day clustering rule).
+// - "wound" groups: entries are kept unless they're a wound-care topical
+//   product; no minimum-entry-count requirement (a single wound order is
+//   still exported).
+// Any group left empty, or resident left with no groups, is dropped.
 function filterResultsByCondition(results: AntibioticsCheckResult[]): AntibioticsCheckResult[] {
   return results
     .map((resident) => {
       const groups = resident.groups
         .map((group) => {
+          if (group.type === "wound") {
+            const entries = group.entries.filter((entry) => !isWoundExcludedNote(entry.noteText))
+            return {
+              ...group,
+              entries,
+              duplicateNoteText:
+                entries.length + " wound-related order" + (entries.length !== 1 ? "s" : "") +
+                " found — no 3+ day gap requirement applies to wound orders.",
+            }
+          }
           const entries = group.entries.filter((entry) => matchesCondition(entry.noteText))
           return {
             ...group,
@@ -62,7 +101,7 @@ function filterResultsByCondition(results: AntibioticsCheckResult[]): Antibiotic
               " in this cluster relate to Urinary/UTI/sepsis/bacteremia.",
           }
         })
-        .filter((group) => group.entries.length >= 2)
+        .filter((group) => (group.type === "wound" ? group.entries.length >= 1 : group.entries.length >= 2))
       return { ...resident, groups }
     })
     .filter((resident) => resident.groups.length > 0)
@@ -123,7 +162,7 @@ export async function POST(request: NextRequest) {
       }),
       new Paragraph({
         children: [
-          new TextRun({ text: "Residents with antibiotic orders 3 or more days apart", font: "Times New Roman", size: 22, color: GRAY, italics: true }),
+          new TextRun({ text: "Residents with antibiotic orders 3+ days apart (Urinary/UTI/sepsis/bacteremia) or wound-related orders", font: "Times New Roman", size: 22, color: GRAY, italics: true }),
         ],
         spacing: { after: 40 },
       })
@@ -222,7 +261,17 @@ export async function POST(request: NextRequest) {
       // Each flagged cluster (orders 3+ days apart)
       for (let gi = 0; gi < resident.groups.length; gi++) {
         const group = resident.groups[gi]
-        const groupLabel = resident.groups.length > 1 ? "Cluster " + (gi + 1) + ":  " : "\u25B6  Antibiotics 3+ Days Apart:  "
+        const conditionGroupCount = resident.groups.filter((g) => g.type !== "wound").length
+        const conditionIndexSoFar = resident.groups.slice(0, gi + 1).filter((g) => g.type !== "wound").length
+
+        let groupLabel: string
+        if (group.type === "wound") {
+          groupLabel = "\u25B6  Wound-Related Order" + (group.entries.length !== 1 ? "s" : "") + ":  "
+        } else if (conditionGroupCount > 1) {
+          groupLabel = "Cluster " + conditionIndexSoFar + ":  "
+        } else {
+          groupLabel = "\u25B6  Antibiotics 3+ Days Apart:  "
+        }
 
         // Gold callout box
         children.push(
