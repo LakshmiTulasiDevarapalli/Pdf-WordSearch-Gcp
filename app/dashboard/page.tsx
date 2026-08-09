@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import {
   LogOut, FileSearch, FileText, Pill, ClipboardList,
-  Droplet, Activity, Syringe, Menu, X, HeartPulse, Info, Candy,
+  Droplet, Activity, Syringe, Menu, X, HeartPulse, Info, Candy, Stethoscope,
 } from "lucide-react"
 import { FileUploadSection } from "@/components/file-upload-section"
 import { MedicationSection } from "@/components/medication-section"
@@ -16,6 +16,7 @@ import { DiabetesCheckTrackSection } from "@/components/diabetes-check-track-sec
 import { SugarSenseSection } from "@/components/sugar-sense-section"
 import { AntibioticsCheckSection } from "@/components/antibiotics-check-section"
 import { VitalExceptionReportSection } from "@/components/vital-exception-report-section"
+import { DialysisAuditSection } from "@/components/dialysis-audit-section"
 import { InfoSection } from "@/components/info-section"
 import { SettingsDropdown } from "@/components/settings-dropdown"
 import { supabase } from "@/lib/supabase"
@@ -58,7 +59,7 @@ function ParticleCanvas() {
   return <canvas ref={canvasRef} style={{position:"fixed",inset:0,width:"100%",height:"100%",zIndex:0}}/>
 }
 
-type ModuleKey = "progress" | "medication" | "order-listing" | "bgm-compliance" | "diabetes-check-track" | "sugar-sense" | "antibiotics-check" | "vital-exception-report"
+type ModuleKey = "progress" | "medication" | "order-listing" | "bgm-compliance" | "diabetes-check-track" | "sugar-sense" | "antibiotics-check" | "vital-exception-report" | "dialysis-audit"
 type TabKey = ModuleKey | "info"
 
 const TAB_META: Record<ModuleKey, { label: string; icon: React.ComponentType<{ style?: React.CSSProperties; className?: string }>; description: string; adminOnly: boolean; badge?: string }> = {
@@ -118,9 +119,16 @@ const TAB_META: Record<ModuleKey, { label: string; icon: React.ComponentType<{ s
     adminOnly: false,
     badge: "2x/Week",
   },
+  "dialysis-audit": {
+    label: "Dialysis Audit",
+    icon: Stethoscope,
+    description: "Audit dialysis treatment records and sessions against compliance requirements.",
+    adminOnly: true,
+    badge: "Monthly",
+  },
 }
 
-const TAB_ORDER: ModuleKey[] = ["antibiotics-check", "bgm-compliance", "diabetes-check-track", "medication", "order-listing", "progress", "sugar-sense", "vital-exception-report"]
+const TAB_ORDER: ModuleKey[] = ["antibiotics-check", "bgm-compliance", "diabetes-check-track", "dialysis-audit", "medication", "order-listing", "progress", "sugar-sense", "vital-exception-report"]
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -537,6 +545,10 @@ export default function DashboardPage() {
 
             {activeTab === "vital-exception-report" && (
               <VitalExceptionReportSection userRole={userRole} />
+            )}
+
+            {activeTab === "dialysis-audit" && (
+              <DialysisAuditSection userRole={userRole} />
             )}
 
             {isInfoTab && (
